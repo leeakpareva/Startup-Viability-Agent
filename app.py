@@ -20,9 +20,10 @@ from bs4 import BeautifulSoup  # HTML/XML parser for web scraping
 from urllib.parse import urlparse  # URL validation and parsing utilities
 import re  # Regular expressions for text processing and validation
 
-from typing import Dict, Any, List  # Type hints for better code documentation
+from typing import Dict, Any, List, Optional  # Type hints for better code documentation
 from openai import OpenAI  # OpenAI API client for GPT model interactions
 from dotenv import load_dotenv  # Load environment variables from .env file
+import uuid  # For generating unique thread/session IDs
 from IPython.display import display  # IPython display utilities (not actively used)
 from sklearn.model_selection import train_test_split  # Split data for ML training
 from sklearn.ensemble import RandomForestClassifier  # Random Forest model for predictions
@@ -33,20 +34,40 @@ from langchain_core.documents import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import Chroma
 from langchain.chains import RetrievalQA
-from langsmith import traceable
+from langsmith import traceable, Client as LangSmithClient
+from langsmith.wrappers import wrap_openai
+import langsmith as ls
 import os
 
 # =============================
 # INITIAL SETUP & CONFIGURATION
 # =============================
-# Load environment variables (OPENAI_API_KEY) from .env file
+# Load environment variables (OPENAI_API_KEY, LANGSMITH_API_KEY) from .env file
 # This keeps sensitive API keys out of the source code
 load_dotenv()
 
-# Initialize OpenAI client for making API calls to GPT models
-# The API key is automatically pulled from the OPENAI_API_KEY environment variable
-# If not found in env, OpenAI SDK will look for it in default locations
-client = OpenAI()
+# Get API keys from environment
+api_key = os.getenv("OPENAI_API_KEY")
+langsmith_api_key = os.getenv("LANGSMITH_API_KEY")
+
+# Configure LangSmith project name for tracing
+LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT", "navada-startup-agent")
+
+# Initialize OpenAI client with optional LangSmith wrapping for tracing
+if api_key:
+    base_client = OpenAI(api_key=api_key)
+    # Wrap with LangSmith if API key is available
+    if langsmith_api_key:
+        client = wrap_openai(base_client)
+        langsmith_client = LangSmithClient(api_key=langsmith_api_key)
+        print("✅ LangSmith tracing enabled")
+    else:
+        client = base_client
+        langsmith_client = None
+        print("ℹ️ LangSmith tracing disabled (no API key)")
+else:
+    client = OpenAI()  # Will use default OPENAI_API_KEY from environment
+    langsmith_client = None
 
 # =============================
 # LANGSMITH SETUP FOR HOSTING
@@ -63,8 +84,9 @@ FEEDBACK_STORAGE = []
 # =============================
 # SESSION MEMORY & PERSONAS
 # =============================
-# Store conversation history and persona settings per session
+# Store conversation history, thread IDs, and persona settings per session
 SESSION_MEMORY = {}  # Stores conversation history per session ID
+THREAD_SESSIONS = {}  # Maps session IDs to thread IDs for LangSmith
 PERSONAS = {
     "investor": {
         "name": "Investor Mode",
@@ -1853,6 +1875,119 @@ def create_portfolio_heatmap(portfolio_df: pd.DataFrame) -> bytes:
 
 
 # =============================
+# THREAD MANAGEMENT FOR LANGSMITH
+# =============================
+
+def get_thread_history(thread_id: str, project_name: str) -> List[Dict[str, Any]]:
+    """
+    Retrieve conversation history from LangSmith for a specific thread.
+
+    Args:
+        thread_id: Unique identifier for the conversation thread
+        project_name: LangSmith project name
+
+    Returns:
+        List of message dictionaries representing the conversation history
+    """
+    if not langsmith_client:
+        return []
+
+    try:
+        # Filter runs by the specific thread and project
+        filter_string = f'and(in(metadata_key, ["session_id","conversation_id","thread_id"]), eq(metadata_value, "{thread_id}"))'
+
+        # Only grab the LLM runs
+        runs = list(langsmith_client.list_runs(
+            project_name=project_name,
+            filter=filter_string,
+            run_type="llm"
+        ))
+
+        if not runs:
+            return []
+
+        # Sort by start time to get chronological order
+        runs = sorted(runs, key=lambda run: run.start_time)
+
+        # Extract messages from runs
+        messages = []
+        for run in runs:
+            if run.inputs and 'messages' in run.inputs:
+                messages.extend(run.inputs['messages'])
+            if run.outputs and 'choices' in run.outputs:
+                if run.outputs['choices'] and run.outputs['choices'][0].get('message'):
+                    messages.append(run.outputs['choices'][0]['message'])
+
+        return messages
+    except Exception as e:
+        print(f"Error retrieving thread history: {e}")
+        return []
+
+@traceable(name="NAVADA Chat Pipeline")
+def process_with_thread_context(
+    question: str,
+    session_id: str,
+    get_chat_history: bool = True,
+    persona: Optional[Dict[str, str]] = None
+) -> str:
+    """
+    Process user message with thread context for continuity.
+
+    Args:
+        question: User's current question
+        session_id: Thread/session identifier
+        get_chat_history: Whether to retrieve and use conversation history
+        persona: Current persona configuration
+
+    Returns:
+        AI response as string
+    """
+    langsmith_extra = {
+        "project_name": LANGSMITH_PROJECT,
+        "metadata": {"session_id": session_id}
+    }
+
+    messages = []
+
+    # Retrieve conversation history if requested
+    if get_chat_history and langsmith_client:
+        try:
+            historical_messages = get_thread_history(session_id, LANGSMITH_PROJECT)
+            if historical_messages:
+                messages.extend(historical_messages)
+        except Exception as e:
+            print(f"Could not retrieve history: {e}")
+
+    # Add system prompt based on persona
+    if persona:
+        messages.insert(0, {
+            "role": "system",
+            "content": persona.get('system_prompt', '')
+        })
+
+    # Add current user question
+    messages.append({"role": "user", "content": question})
+
+    # Make API call with thread metadata
+    try:
+        if langsmith_client:
+            # Use traceable context for LangSmith
+            with ls.get_current_run_tree() as run_tree:
+                if run_tree:
+                    run_tree.extra = langsmith_extra
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            max_tokens=800,
+            temperature=0.7
+        )
+
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"Error processing message: {str(e)}"
+
+# =============================
 # CHAINLIT EVENT HANDLERS
 # =============================
 
@@ -1863,7 +1998,8 @@ async def start():
 
     This function runs once at the start of each new chat session and:
     1. Sets up chat settings with About section and quick actions
-    2. Sends a brief welcome message
+    2. Initializes thread/session tracking for LangSmith
+    3. Sends a brief welcome message
 
     The settings panel (burger menu) contains detailed information
     about NAVADA's capabilities.
@@ -1872,6 +2008,32 @@ async def start():
     - Automatically called when a new chat begins
     - Async function for non-blocking UI operations
     """
+    # -------------------------
+    # INITIALIZE THREAD/SESSION TRACKING
+    # -------------------------
+    # Generate a unique session ID for this conversation thread
+    session_id = str(uuid.uuid4())
+
+    # Store session info in Chainlit user session for persistence
+    cl.user_session.set("session_id", session_id)
+    cl.user_session.set("conversation_history", [])
+    cl.user_session.set("thread_metadata", {
+        "session_id": session_id,
+        "project_name": LANGSMITH_PROJECT,
+        "start_time": pd.Timestamp.now().isoformat()
+    })
+
+    # Store in global thread sessions mapping
+    THREAD_SESSIONS[session_id] = {
+        "start_time": pd.Timestamp.now(),
+        "messages": [],
+        "persona": "founder"  # Default persona
+    }
+
+    # Log thread initialization
+    if langsmith_client:
+        print(f"🧵 Thread initialized: {session_id[:8]}...")
+
     # -------------------------
     # SETUP CHAT SETTINGS WITH ABOUT SECTION
     # -------------------------
@@ -3013,7 +3175,7 @@ async def main(message: cl.Message):
     # -------------------------
     # SESSION MEMORY & PERSONA INTEGRATION
     # -------------------------
-    session_id = get_session_id()
+    session_id = cl.user_session.get("session_id", get_session_id())
     persona = get_current_persona()
     memory_context = get_memory_context(session_id)
 
@@ -3027,55 +3189,68 @@ async def main(message: cl.Message):
     df_str = df.to_string(index=False)
 
     # -------------------------
-    # CALL OPENAI API WITH PERSONA & MEMORY
+    # USE THREAD-AWARE PROCESSING FOR LANGSMITH
     # -------------------------
-    enhanced_system_prompt = (
-        f"{persona['system_prompt']}\n\n"
-        "Available commands you can suggest:\n"
-        "- 'timeline' - failure timeline\n"
-        "- 'funding vs burn' - funding vs burn rate\n"
-        "- 'interactive dashboard' - interactive scatter plot\n"
-        "- 'interactive timeline' - interactive failure timeline\n"
-        "- 'sector dashboard' - multi-chart sector analysis\n"
-        "- 'benchmark' - compare founder idea to dataset\n"
-        "- 'portfolio' - analyze multiple startups with heatmap\n"
-        "- 'insights' - auto-generate risks and recommendations\n"
-        "- 'investor mode' / 'founder mode' - switch analysis perspective\n\n"
-        "Remember conversation history when relevant. "
-        "If the user asks a question that would be better answered with a visualization, "
-        "suggest they try one of these commands."
-    )
+    # Check if LangSmith is enabled and use thread context
+    if langsmith_client:
+        # Use the thread-aware processing function with LangSmith tracing
+        enhanced_question = f"Dataset:\n{df_str}\n\nUser question: {message.content}"
 
-    messages = [
-        {
-            "role": "system",
-            "content": enhanced_system_prompt
-        }
-    ]
+        ai_response = process_with_thread_context(
+            question=enhanced_question,
+            session_id=session_id,
+            get_chat_history=True,  # Always use history for continuity
+            persona=persona
+        )
+    else:
+        # Fallback to standard processing without LangSmith tracing
+        enhanced_system_prompt = (
+            f"{persona['system_prompt']}\n\n"
+            "Available commands you can suggest:\n"
+            "- 'timeline' - failure timeline\n"
+            "- 'funding vs burn' - funding vs burn rate\n"
+            "- 'interactive dashboard' - interactive scatter plot\n"
+            "- 'interactive timeline' - interactive failure timeline\n"
+            "- 'sector dashboard' - multi-chart sector analysis\n"
+            "- 'benchmark' - compare founder idea to dataset\n"
+            "- 'portfolio' - analyze multiple startups with heatmap\n"
+            "- 'insights' - auto-generate risks and recommendations\n"
+            "- 'investor mode' / 'founder mode' - switch analysis perspective\n\n"
+            "Remember conversation history when relevant. "
+            "If the user asks a question that would be better answered with a visualization, "
+            "suggest they try one of these commands."
+        )
 
-    # Add memory context if available
-    if memory_context:
+        messages = [
+            {
+                "role": "system",
+                "content": enhanced_system_prompt
+            }
+        ]
+
+        # Add memory context if available
+        if memory_context:
+            messages.append({
+                "role": "system",
+                "content": f"Conversation context:\n{memory_context}"
+            })
+
         messages.append({
-            "role": "system",
-            "content": f"Conversation context:\n{memory_context}"
+            "role": "user",
+            "content": f"Dataset:\n{df_str}\n\nUser question: {message.content}"
         })
 
-    messages.append({
-        "role": "user",
-        "content": f"Dataset:\n{df_str}\n\nUser question: {message.content}"
-    })
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            max_tokens=500
+        )
 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=messages,
-        max_tokens=500
-    )
+        ai_response = response.choices[0].message.content
 
     # -------------------------
     # SEND AI RESPONSE WITH PERSONA INDICATOR
     # -------------------------
-    ai_response = response.choices[0].message.content
-
     # Add AI response to memory
     add_to_memory(session_id, "assistant", ai_response)
 
