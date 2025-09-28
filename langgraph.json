@@ -1,8 +1,6 @@
 {
   "dependencies": ["."],
-  "graphs": {
-    "navada_agent": "./app.py:agent"
-  },
+  "graphs": {},
   "env": ".env",
   "python_version": "3.11",
   "pip_config_file": "requirements.txt",
