@@ -48,7 +48,7 @@ load_dotenv()
 
 # Get API keys from environment
 api_key = os.getenv("OPENAI_API_KEY")
-langsmith_api_key = os.getenv("LANGSMITH_API_KEY")
+langsmith_api_key = os.getenv("LS_API_KEY")
 
 # Configure LangSmith project name for tracing
 LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT", "navada-startup-agent")
