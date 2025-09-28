@@ -1,0 +1,2072 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NAVADA</title>
+    <style>
+        :root {
+            --bg-primary: #0e1117;
+            --bg-secondary: #262730;
+            --bg-tertiary: #1e1e1e;
+            --text-primary: #fafafa;
+            --text-secondary: #a3a8b8;
+            --accent-primary: #ff4b4b;
+            --accent-secondary: #ff6b6b;
+            --border-color: #3d3d3d;
+            --code-bg: #1a1a1a;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.7;
+            color: var(--text-primary);
+            background: var(--bg-primary);
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: var(--bg-secondary);
+            padding: 40px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        h1 {
+            color: var(--accent-primary);
+            font-size: 2.5em;
+            margin-bottom: 30px;
+            font-weight: 700;
+            border-bottom: 2px solid var(--accent-primary);
+            padding-bottom: 15px;
+        }
+
+        h2 {
+            color: var(--text-primary);
+            font-size: 1.8em;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            font-weight: 600;
+            border-left: 4px solid var(--accent-primary);
+            padding-left: 15px;
+        }
+
+        h3 {
+            color: var(--text-secondary);
+            font-size: 1.3em;
+            margin-top: 25px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        p {
+            margin: 15px 0;
+            color: var(--text-secondary);
+        }
+
+        code {
+            background: var(--code-bg);
+            color: var(--accent-primary);
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        pre {
+            background: var(--code-bg);
+            color: var(--text-primary);
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 20px 0;
+            border: 1px solid var(--border-color);
+        }
+
+        pre code {
+            background: transparent;
+            color: var(--text-primary);
+            padding: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 25px 0;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 14px;
+            text-align: left;
+        }
+
+        th {
+            background: var(--accent-secondary);
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        td {
+            color: var(--text-secondary);
+        }
+
+        tr:nth-child(even) {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .feature-box {
+            background: rgba(6, 182, 212, 0.1);
+            padding: 20px;
+            border-left: 4px solid var(--accent-primary);
+            margin: 20px 0;
+            border-radius: 6px;
+        }
+
+        .feature-box p, .feature-box ul {
+            color: var(--text-primary);
+        }
+
+        .example {
+            background: rgba(16, 185, 129, 0.1);
+            padding: 20px;
+            border-left: 4px solid #10b981;
+            margin: 20px 0;
+            border-radius: 6px;
+        }
+
+        .example strong {
+            color: var(--text-primary);
+        }
+
+        .tip {
+            background: rgba(251, 191, 36, 0.1);
+            padding: 20px;
+            border-left: 4px solid #fbbf24;
+            margin: 20px 0;
+            border-radius: 6px;
+        }
+
+        .tip strong {
+            color: var(--text-primary);
+        }
+
+        ul, ol {
+            margin: 15px 0;
+            padding-left: 30px;
+        }
+
+        li {
+            margin: 10px 0;
+            color: var(--text-secondary);
+        }
+
+        strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        a {
+            color: var(--accent-primary);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-secondary);
+        }
+
+        /* Back to app button */
+        .back-button {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: var(--accent-primary);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            font-size: 24px;
+        }
+
+        .back-button:hover {
+            background: var(--accent-secondary);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(255, 75, 75, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <a href="/" class="back-button">&lt;</a>
+
+    <div class="container">
+        <h1>NAVADA</h1>
+
+        <h2>Executive Summary</h2>
+
+        <div class="feature-box">
+            <p><strong>NAVADA (New Analysis & Viability Assessment for Data-driven Analysis)</strong> is an AI-powered startup analysis platform designed to help investors, founders, and analysts make data-driven decisions about startup viability and risk.</p>
+
+            <p>The platform combines advanced data visualization, machine learning-powered intent detection, and an 8-factor viability scoring model to provide comprehensive startup analysis in seconds rather than hours.</p>
+
+            <p><strong>Key Capabilities:</strong></p>
+            <ul>
+                <li><strong>Interactive Dashboards:</strong> Plotly-powered charts with zoom, hover details, and click functionality</li>
+                <li><strong>Memory & Personas:</strong> Session memory with Investor/Founder modes for personalized analysis</li>
+                <li><strong>Auto-Generated Insights:</strong> AI-powered risk detection, opportunity identification, and actionable recommendations</li>
+                <li><strong>Instant Chart Generation:</strong> 5 predefined visualizations + unlimited custom charts via natural language</li>
+                <li><strong>AI-Powered Analysis:</strong> GPT-4 integration with conversation memory and intelligent Q&A</li>
+                <li><strong>Viability Scoring:</strong> Comprehensive 8-factor assessment model (0-100 scale)</li>
+                <li><strong>Founder Idea Benchmarking:</strong> Compare your startup metrics against dataset averages with percentile rankings</li>
+                <li><strong>Portfolio Analysis:</strong> Multi-startup heatmap visualization with investment recommendations</li>
+                <li><strong>Automated PDF Reports:</strong> One-click investment memos with executive summaries, charts, and recommendations</li>
+                <li><strong>Custom Data Support:</strong> Upload and analyze your own startup datasets</li>
+                <li><strong>Natural Language Interface:</strong> No technical expertise required - just ask questions</li>
+            </ul>
+        </div>
+
+        <h2>The Problem NAVADA Solves</h2>
+
+        <div class="example">
+            <h3>Challenge 1: Time-Consuming Manual Analysis</h3>
+            <p><strong>Problem:</strong> Traditional startup analysis requires hours of spreadsheet work, manual chart creation, and repetitive calculations to assess viability factors like runway, burn rate, and market positioning.</p>
+            <p><strong>Solution:</strong> NAVADA generates comprehensive visualizations and analysis in under 10 seconds through simple commands or natural language requests.</p>
+        </div>
+
+        <div class="example">
+            <h3>Challenge 2: Inconsistent Evaluation Criteria</h3>
+            <p><strong>Problem:</strong> Different investors and analysts use varying criteria to evaluate startups, leading to subjective assessments and missed risk factors.</p>
+            <p><strong>Solution:</strong> NAVADA applies a standardized 8-factor viability model that weights critical success factors (runway, experience, market size, business model, moat, traction, growth, competition) to provide objective, reproducible scores.</p>
+        </div>
+
+        <div class="example">
+            <h3>Challenge 3: Technical Barriers to Data Visualization</h3>
+            <p><strong>Problem:</strong> Creating meaningful charts requires technical skills in tools like Python, R, or Excel, limiting access to data-driven insights for non-technical stakeholders.</p>
+            <p><strong>Solution:</strong> Natural language chart generation allows anyone to request complex visualizations like "Show me a scatter plot of funding vs burn rate colored by sector" without writing a single line of code.</p>
+        </div>
+
+        <div class="example">
+            <h3>Challenge 4: Lack of Pattern Recognition</h3>
+            <p><strong>Problem:</strong> Identifying failure patterns across sectors, countries, and founder experience levels requires analyzing large datasets and recognizing subtle correlations.</p>
+            <p><strong>Solution:</strong> AI-powered analysis detects patterns automatically and provides contextual insights like "UK startups have 71.4% failure rate due to lower average funding ($4.2M) vs successful startups ($11.3M)."</p>
+        </div>
+
+        <div class="tip">
+            <p><strong>Who Benefits from NAVADA:</strong></p>
+            <ul>
+                <li><strong>Investors & VCs:</strong> Rapid due diligence and portfolio risk assessment</li>
+                <li><strong>Founders:</strong> Objective viability scoring to identify weaknesses before fundraising</li>
+                <li><strong>Accelerators:</strong> Standardized evaluation criteria for cohort selection</li>
+                <li><strong>Analysts:</strong> Automated data visualization for reports and presentations</li>
+                <li><strong>Educators:</strong> Teaching entrepreneurship with real-world data and analysis</li>
+            </ul>
+        </div>
+
+        <h2>Quick Start (30 Seconds)</h2>
+
+        <h3>Your First Commands</h3>
+        <p>Try these instantly:</p>
+        <ul>
+            <li>Type: <code>timeline</code></li>
+            <li>Type: <code>assess idea</code></li>
+            <li>Type: <code>Show me a bar chart of funding by sector</code></li>
+        </ul>
+
+        <h2>Understanding NAVADA</h2>
+
+        <div class="feature-box">
+            <p><strong>NAVADA</strong> = <strong>N</strong>ew <strong>A</strong>nalysis & <strong>V</strong>iability <strong>A</strong>ssessment for <strong>D</strong>ata-driven <strong>A</strong>nalysis</p>
+            <p>NAVADA is your AI-powered startup analyst that:</p>
+            <ul>
+                <li>Generates visual charts automatically</li>
+                <li>Analyzes startup risk factors</li>
+                <li>Predicts failure patterns</li>
+                <li>Scores startup viability (0-100)</li>
+                <li>Answers questions about your data</li>
+            </ul>
+        </div>
+
+        <h2>Three Ways to Use NAVADA</h2>
+
+        <h3>1. Predefined Chart Commands</h3>
+        <p>Type exact keywords for instant charts:</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Command</th>
+                    <th>What You Get</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>timeline</code></td>
+                    <td>Bar chart showing when each startup will run out of money</td>
+                </tr>
+                <tr>
+                    <td><code>funding vs burn</code></td>
+                    <td>Scatter plot showing funding amount vs burn rate (colored by success/failure)</td>
+                </tr>
+                <tr>
+                    <td><code>sector comparison chart</code></td>
+                    <td>Bar chart comparing average funding across industries</td>
+                </tr>
+                <tr>
+                    <td><code>failure rate by country</code></td>
+                    <td>Color-coded bars showing failure % for UK, US, Germany, France</td>
+                </tr>
+                <tr>
+                    <td><code>experience vs success chart</code></td>
+                    <td>Scatter plot showing founder experience vs outcome</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="example">
+            <strong>Example:</strong>
+            <pre><code>You: timeline
+NAVADA: [Generates failure timeline chart with 12 startups]</code></pre>
+        </div>
+
+        <h3>2. Natural Language Chart Requests</h3>
+        <p>Ask for any chart in plain English:</p>
+
+        <div class="example">
+            <strong>Examples:</strong>
+            <pre><code>You: Show me a bar chart of funding by startup
+NAVADA: [AI detects intent, generates custom bar chart]
+
+You: Create a pie chart of successful vs failed companies
+NAVADA: [Generates pie chart with proportions]
+
+You: Visualize the relationship between market size and funding
+NAVADA: [Creates scatter plot]</code></pre>
+        </div>
+
+        <p><strong>Supported Chart Types:</strong></p>
+        <ul>
+            <li><code>bar chart</code> - Compare categories</li>
+            <li><code>scatter plot</code> - Show relationships</li>
+            <li><code>line chart</code> - Display trends</li>
+            <li><code>pie chart</code> - Show proportions</li>
+        </ul>
+
+        <div class="tip">
+            <strong>Pro Tips:</strong>
+            <ul>
+                <li>Be specific: "bar chart of X by Y"</li>
+                <li>Use column names: "Funding_USD_M", "Sector", "Country"</li>
+                <li>Request comparisons: "compare X vs Y"</li>
+            </ul>
+        </div>
+
+        <h3>3. Ask Questions (AI Analysis)</h3>
+        <p>Type natural questions about the data:</p>
+
+        <div class="example">
+            <strong>Sample Questions:</strong>
+            <pre><code>You: Which sector looks riskiest?
+NAVADA: Based on the data, Transport has a 100% failure rate...
+
+You: What's the average funding for successful startups?
+NAVADA: Successful startups have an average funding of $11.3M...
+
+You: Why do some startups fail faster than others?
+NAVADA: [Provides detailed analysis based on burn rate, funding, experience]</code></pre>
+        </div>
+
+        <h2>Viability Assessment (Interactive Scoring)</h2>
+
+        <h3>How to Start:</h3>
+        <pre><code>You: assess idea</code></pre>
+
+        <h3>What Happens:</h3>
+        <ol>
+            <li><strong>NAVADA asks 9 questions</strong> about your startup:
+                <ul>
+                    <li>Funding amount (USD Millions)</li>
+                    <li>Burn rate (months)</li>
+                    <li>Team experience (years)</li>
+                    <li>Market size (Billions)</li>
+                    <li>Business model strength (1-5)</li>
+                    <li>Moat/defensibility (1-5)</li>
+                    <li>Current MRR ($k)</li>
+                    <li>Monthly growth rate (%)</li>
+                    <li>Competition intensity (1-5)</li>
+                </ul>
+            </li>
+            <li><strong>You provide answers</strong> (or press Enter for defaults)</li>
+            <li><strong>NAVADA generates:</strong>
+                <ul>
+                    <li>Visual gauge showing score (0-100)</li>
+                    <li>Score interpretation: Strong | Moderate | Weak</li>
+                    <li>Estimated runway (months)</li>
+                    <li>Projected failure year</li>
+                    <li>Component breakdown (8 factors)</li>
+                    <li>Actionable recommendations</li>
+                </ul>
+            </li>
+        </ol>
+
+        <h2>Founder Idea Benchmarking</h2>
+
+        <div class="feature-box">
+            <p><strong>NEW FEATURE:</strong> Compare your startup idea against our dataset to see exactly how you stack up! Get percentile rankings and personalized insights that feel like having a startup advisor.</p>
+        </div>
+
+        <h3>How to Benchmark Your Idea:</h3>
+        <pre><code>You: benchmark idea
+NAVADA: I'll compare your metrics against our dataset to see how you stack up!</code></pre>
+
+        <h3>What NAVADA Asks You:</h3>
+        <ul>
+            <li><strong>Funding Amount:</strong> How much have you raised? (USD millions)</li>
+            <li><strong>Burn Rate:</strong> How many months will your funding last?</li>
+            <li><strong>Team Experience:</strong> Average years of experience across founders</li>
+            <li><strong>Market Size:</strong> Total addressable market in billions</li>
+        </ul>
+
+        <h3>What You Get Back:</h3>
+
+        <div class="example">
+            <h4>Sample Benchmarking Results:</h4>
+            <pre><code>## 📊 Benchmarking Results
+
+**Risk Level:** MODERATE RISK 🟡
+
+### 📈 How You Compare:
+
+• ⚠️ Your burn rate (6 months) is in the **bottom 30%** - HIGH RISK! Most startups have longer runways.
+• ✅ Your funding ($8M) is in the **top 30%** - strong financial position
+• ⚠️ Your team experience (2 years) is **below dataset median** - consider adding senior advisors
+• 🚀 Your market size ($80B) is **2.3× bigger** than average!
+
+### 📊 Detailed Metrics:
+
+**Funding:** $8.0M (percentile: 75%)
+• 1.8× the median startup
+
+**Burn Rate:** 6 months (percentile: 25%)
+• 0.5× the median startup
+
+**Experience:** 2 years (percentile: 33%)
+• 0.7× the median startup
+
+**Market Size:** $80B (percentile: 90%)
+• 2.3× the median startup
+
+### 💡 Recommendations:
+
+• Reduce burn rate or secure additional funding urgently
+• Add experienced advisors or co-founders to the team</code></pre>
+        </div>
+
+        <h3>Key Insights You'll Receive:</h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Insight Type</th>
+                    <th>Example Message</th>
+                    <th>Action Required</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Bottom 30% Warning</strong></td>
+                    <td>"Your burn rate is in the bottom 30% - HIGH RISK!"</td>
+                    <td>Immediate attention needed</td>
+                </tr>
+                <tr>
+                    <td><strong>Top 30% Strength</strong></td>
+                    <td>"Your funding is in the top 30% - strong position"</td>
+                    <td>Leverage this advantage</td>
+                </tr>
+                <tr>
+                    <td><strong>Below Median</strong></td>
+                    <td>"Your team experience is below dataset median"</td>
+                    <td>Consider improvements</td>
+                </tr>
+                <tr>
+                    <td><strong>Above Average Market</strong></td>
+                    <td>"Your market size is 3× bigger than average!"</td>
+                    <td>Capitalize on opportunity</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="tip">
+            <h4>Why Benchmarking Matters:</h4>
+            <ul>
+                <li><strong>Objective Reality Check:</strong> See where you truly stand vs. other startups</li>
+                <li><strong>Identify Blind Spots:</strong> Discover weaknesses you might have missed</li>
+                <li><strong>Prioritize Improvements:</strong> Focus on metrics that matter most for survival</li>
+                <li><strong>Investor Perspective:</strong> Understand how VCs will evaluate your startup</li>
+                <li><strong>Competitive Intelligence:</strong> Learn what "good" looks like in your space</li>
+            </ul>
+        </div>
+
+        <h2>Portfolio Analysis Mode</h2>
+
+        <div class="feature-box">
+            <p><strong>NEW FEATURE:</strong> Analyze multiple startups simultaneously with an interactive heatmap. Perfect for VCs, accelerators, and anyone evaluating multiple opportunities at once.</p>
+        </div>
+
+        <h3>How to Enter Portfolio Mode:</h3>
+        <pre><code>You: portfolio mode
+NAVADA: I'll create a comprehensive heatmap of all startups in your dataset!</code></pre>
+
+        <h3>What Portfolio Mode Generates:</h3>
+
+        <h4>1. Portfolio Viability Heatmap</h4>
+        <p>Visual matrix showing 6 key metrics for all startups:</p>
+        <ul>
+            <li><strong>Overall Score:</strong> Combined viability (0-100)</li>
+            <li><strong>Runway:</strong> Financial sustainability</li>
+            <li><strong>Experience:</strong> Team expertise</li>
+            <li><strong>Market:</strong> Market opportunity</li>
+            <li><strong>Traction:</strong> Current momentum</li>
+            <li><strong>Growth:</strong> Growth trajectory</li>
+        </ul>
+
+        <h4>2. Color-Coded Risk Assessment</h4>
+        <ul>
+            <li><strong>🔴 Red (0-40):</strong> Poor performance, high risk</li>
+            <li><strong>🟡 Yellow (40-60):</strong> Moderate performance, needs monitoring</li>
+            <li><strong>🟢 Green (60-100):</strong> Strong performance, investment-ready</li>
+        </ul>
+
+        <div class="example">
+            <h4>Sample Portfolio Analysis:</h4>
+            <pre><code>### 🔥 Portfolio Viability Heatmap
+
+**Analysis of 12 startups across 6 key metrics:**
+• **Overall Score** - Combined viability (0-100)
+• **Runway** - Financial sustainability
+• **Experience** - Team expertise
+• **Market** - Market opportunity
+• **Traction** - Current momentum
+• **Growth** - Growth trajectory
+
+**Color Guide:** 🔴 Poor (0-40) | 🟡 Moderate (40-60) | 🟢 Strong (60-100)
+
+[Interactive Heatmap Visualization]
+
+### 🎯 Investment Recommendations:
+
+**🟢 INVEST (Score ≥ 60):**
+• NeuroStream (67.2)
+• MediAI (65.8)
+• LogistiChain (63.1)
+
+**🟡 MONITOR (Score 40-59):**
+• FinSolve (56.4)
+• GreenCore (52.1)
+• EduSmart (48.7)
+
+**🔴 PASS (Score < 40):**
+• TechX (35.2)
+• Foodly (28.9)
+• EcoGo (22.1)
+
+**📊 Portfolio Stats:**
+• Average Score: 51.2/100
+• High Performers: 3/12 (25.0%)
+• Success Rate: 50.0%</code></pre>
+        </div>
+
+        <h3>Portfolio Mode Benefits:</h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Use Case</th>
+                    <th>How It Helps</th>
+                    <th>Who Benefits</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>VC Due Diligence</strong></td>
+                    <td>Compare multiple deals side-by-side</td>
+                    <td>Venture Capital firms</td>
+                </tr>
+                <tr>
+                    <td><strong>Accelerator Selection</strong></td>
+                    <td>Rank cohort applicants objectively</td>
+                    <td>Startup accelerators</td>
+                </tr>
+                <tr>
+                    <td><strong>Portfolio Management</strong></td>
+                    <td>Monitor existing investments</td>
+                    <td>Fund managers</td>
+                </tr>
+                <tr>
+                    <td><strong>Market Research</strong></td>
+                    <td>Identify sector patterns and trends</td>
+                    <td>Analysts and researchers</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="tip">
+            <h4>Portfolio Analysis Pro Tips:</h4>
+            <ul>
+                <li><strong>Regular Reviews:</strong> Run monthly to track portfolio health</li>
+                <li><strong>Pattern Recognition:</strong> Look for sectors or metrics that consistently perform well/poorly</li>
+                <li><strong>Risk Diversification:</strong> Ensure you're not over-invested in high-risk categories</li>
+                <li><strong>Follow-up Actions:</strong> Use recommendations to guide investment decisions</li>
+                <li><strong>Custom Data:</strong> Upload your own portfolio for personalized analysis</li>
+            </ul>
+        </div>
+
+        <h2>Generate PDF Investment Reports</h2>
+
+        <div class="feature-box">
+            <p><strong>NEW FEATURE:</strong> Generate comprehensive PDF investment analysis reports with one command. Perfect for investor presentations, due diligence, and portfolio reviews.</p>
+        </div>
+
+        <h3>How to Generate Reports:</h3>
+
+        <h4>Option 1: Portfolio Report (All Startups)</h4>
+        <pre><code>You: generate report
+NAVADA: [Creates comprehensive PDF analyzing entire portfolio]</code></pre>
+
+        <h4>Option 2: Single Startup Report</h4>
+        <pre><code>You: generate report for NeuroStream
+NAVADA: [Creates detailed analysis for NeuroStream only]</code></pre>
+
+        <h3>Report Contents (5-7 Pages):</h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Section</th>
+                    <th>What's Included</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Executive Summary</strong></td>
+                    <td>High-level overview, key metrics, portfolio snapshot</td>
+                </tr>
+                <tr>
+                    <td><strong>Key Metrics Table</strong></td>
+                    <td>Funding, burn rate, runway, success rate, sector distribution</td>
+                </tr>
+                <tr>
+                    <td><strong>Data Visualizations</strong></td>
+                    <td>4 professional charts (timeline, funding vs burn, sector analysis, geographic distribution)</td>
+                </tr>
+                <tr>
+                    <td><strong>Risk Analysis</strong></td>
+                    <td>High-risk indicators, runway concerns, market risks, competitive threats</td>
+                </tr>
+                <tr>
+                    <td><strong>Investment Recommendations</strong></td>
+                    <td>INVEST/MONITOR/PASS rating, viability score (0-100), strategic recommendations, top performers</td>
+                </tr>
+                <tr>
+                    <td><strong>Disclaimer</strong></td>
+                    <td>Professional disclaimer about automated analysis and due diligence</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Report Features:</h3>
+
+        <ul>
+            <li><strong>Professional Formatting:</strong> Clean red/black Streamlit theme matching NAVADA's branding</li>
+            <li><strong>Downloadable PDF:</strong> Save, email, or print for meetings</li>
+            <li><strong>Instant Generation:</strong> 10-15 seconds to create multi-page report</li>
+            <li><strong>Data-Driven Insights:</strong> Automated analysis based on 8-factor viability model</li>
+            <li><strong>Actionable Recommendations:</strong> Clear INVEST/MONITOR/PASS guidance</li>
+        </ul>
+
+        <div class="example">
+            <h4>Sample Report Usage:</h4>
+            <pre><code>You: generate report
+NAVADA: 📄 Generating comprehensive PDF report... This may take 10-15 seconds.
+
+NAVADA: ### 📊 Portfolio Analysis Report
+
+**Report Contents:**
+- Portfolio Overview (12 startups)
+- Success Rate Analysis
+- 4 Data Visualizations
+- Risk Assessment
+- Strategic Recommendations
+
+**Download the PDF below for the complete analysis.**
+
+[Portfolio_Analysis.pdf - Download]</code></pre>
+        </div>
+
+        <div class="tip">
+            <h4>Pro Tips for Report Generation:</h4>
+            <ul>
+                <li><strong>Timing:</strong> Generate reports after analyzing data to capture insights</li>
+                <li><strong>Customization:</strong> Mention startup names in your request to get targeted reports</li>
+                <li><strong>Use Cases:</strong> VC pitch meetings, board presentations, investor updates, due diligence documentation</li>
+                <li><strong>Efficiency:</strong> Save 2-3 hours vs. manual report creation</li>
+            </ul>
+        </div>
+
+        <h2>Upload Your Own Data</h2>
+
+        <h3>How to Upload:</h3>
+        <pre><code>You: upload csv
+NAVADA: [Prompts file upload]</code></pre>
+
+        <h3>Required Columns:</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Column</th>
+                    <th>Description</th>
+                    <th>Example</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>Startup</code></td>
+                    <td>Company name</td>
+                    <td>"TechCorp"</td>
+                </tr>
+                <tr>
+                    <td><code>Funding_USD_M</code></td>
+                    <td>Funding in millions</td>
+                    <td>5.5</td>
+                </tr>
+                <tr>
+                    <td><code>Burn_Rate_Months</code></td>
+                    <td>Burn rate</td>
+                    <td>12</td>
+                </tr>
+                <tr>
+                    <td><code>Failed</code></td>
+                    <td>0=success, 1=failed</td>
+                    <td>1</td>
+                </tr>
+                <tr>
+                    <td><code>Country</code></td>
+                    <td>Country code</td>
+                    <td>"UK"</td>
+                </tr>
+                <tr>
+                    <td><code>Sector</code></td>
+                    <td>Industry</td>
+                    <td>"HealthTech"</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>Understanding the Data</h2>
+
+        <h3>Default Dataset (12 Startups):</h3>
+
+        <p><strong>Sectors:</strong></p>
+        <p>Tech, Food, Transport, EdTech, HealthTech, FinTech, Energy, Logistics, Robotics, Retail</p>
+
+        <p><strong>Countries:</strong></p>
+        <ul>
+            <li>UK (7 startups)</li>
+            <li>US (3 startups)</li>
+            <li>Germany (1 startup)</li>
+            <li>France (1 startup)</li>
+        </ul>
+
+        <p><strong>Outcomes:</strong></p>
+        <ul>
+            <li>Successful: 6 startups (50%)</li>
+            <li>Failed: 6 startups (50%)</li>
+        </ul>
+
+        <h3>Key Metrics Explained:</h3>
+
+        <p><strong>Funding_USD_M:</strong> Total funding raised in millions - Higher = more resources</p>
+        <p><strong>Burn_Rate_Months:</strong> How many months funding lasts - Lower = burning money faster</p>
+        <p><strong>Est_Failure_Year:</strong> When startup runs out of money - Earlier year = higher risk</p>
+
+        <h2>Troubleshooting</h2>
+
+        <h3>Chart Not Generating?</h3>
+        <ul>
+            <li>Use exact keywords: <code>timeline</code> not "show timeline"</li>
+            <li>Be explicit: "Create a BAR CHART of X"</li>
+            <li>Try predefined command first: <code>sector comparison chart</code></li>
+        </ul>
+
+        <h3>AI Not Understanding Question?</h3>
+        <ul>
+            <li>Be more specific</li>
+            <li>Use column names</li>
+            <li>Break into smaller questions</li>
+        </ul>
+
+        <div class="example">
+            <strong>Example:</strong>
+            <pre><code>❌ You: What's the best?
+✓ You: Which startup has the highest funding?
+
+❌ You: Show me stuff
+✓ You: Show me a bar chart of Funding_USD_M by Sector</code></pre>
+        </div>
+
+        <h2>Pro Tips & Tricks</h2>
+
+        <div class="tip">
+            <h3>Tip 1: Chain Commands</h3>
+            <pre><code>You: timeline
+[Review chart]
+You: Now show me the riskiest sectors
+[Get analysis]
+You: sector comparison chart
+[See visualization]</code></pre>
+        </div>
+
+        <div class="tip">
+            <h3>Tip 2: Use Follow-up Questions</h3>
+            <pre><code>You: Which country has highest failure rate?
+NAVADA: UK has 71.4% failure rate (5 out of 7).
+You: Why?
+NAVADA: [Provides detailed analysis]
+You: Show me a chart
+NAVADA: [Generates relevant visualization]</code></pre>
+        </div>
+
+        <div class="tip">
+            <h3>Tip 3: Combine Data + Charts</h3>
+            <pre><code>You: What's the average funding for failed startups?
+NAVADA: $2.9M average for failed startups.
+You: Compare that visually with successful startups
+NAVADA: [Generates comparison chart]</code></pre>
+        </div>
+
+        <h2>Available Data Columns</h2>
+
+        <p>Use these in your natural language requests:</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Column</th>
+                    <th>Description</th>
+                    <th>Use In Requests</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>Startup</code></td>
+                    <td>Company name</td>
+                    <td>"by Startup", "for each startup"</td>
+                </tr>
+                <tr>
+                    <td><code>Funding_USD_M</code></td>
+                    <td>Funding (millions)</td>
+                    <td>"funding amount", "investment"</td>
+                </tr>
+                <tr>
+                    <td><code>Burn_Rate_Months</code></td>
+                    <td>Burn rate</td>
+                    <td>"burn rate", "runway"</td>
+                </tr>
+                <tr>
+                    <td><code>Founders_Experience_Yrs</code></td>
+                    <td>Founder experience</td>
+                    <td>"experience", "founder years"</td>
+                </tr>
+                <tr>
+                    <td><code>Market_Size_Bn</code></td>
+                    <td>Market size (billions)</td>
+                    <td>"market size", "TAM"</td>
+                </tr>
+                <tr>
+                    <td><code>Failed</code></td>
+                    <td>Success/Failure</td>
+                    <td>"outcome", "success", "failed"</td>
+                </tr>
+                <tr>
+                    <td><code>Country</code></td>
+                    <td>Country code</td>
+                    <td>"by country", "geographic"</td>
+                </tr>
+                <tr>
+                    <td><code>Sector</code></td>
+                    <td>Industry</td>
+                    <td>"by sector", "industry", "vertical"</td>
+                </tr>
+                <tr>
+                    <td><code>Est_Failure_Year</code></td>
+                    <td>Failure projection</td>
+                    <td>"failure year", "when they fail"</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>Success Metrics</h2>
+
+        <p><strong>You're using NAVADA effectively if:</strong></p>
+        <ul>
+            <li>You can generate charts in &lt; 10 seconds</li>
+            <li>You understand your data patterns</li>
+            <li>You get actionable recommendations</li>
+            <li>You can assess startup viability</li>
+            <li>You make data-driven decisions</li>
+        </ul>
+
+        <h2>Next Steps</h2>
+
+        <h3>Beginner:</h3>
+        <ol>
+            <li>Try all 5 predefined charts</li>
+            <li>Ask 3-5 data questions</li>
+            <li>Upload your own CSV</li>
+            <li>Run one viability assessment</li>
+        </ol>
+
+        <h3>Intermediate:</h3>
+        <ol>
+            <li>Use natural language for custom charts</li>
+            <li>Combine multiple charts for analysis</li>
+            <li>Compare sectors/countries</li>
+            <li>Identify patterns in your data</li>
+        </ol>
+
+        <h3>Advanced:</h3>
+        <ol>
+            <li>Build complete analysis workflows</li>
+            <li>Create data-driven investment theses</li>
+            <li>Generate presentation-ready insights</li>
+            <li>Customize the code for your needs</li>
+        </ol>
+
+        <div class="feature-box">
+            <p><strong>Ready to master NAVADA? Start with <code>timeline</code> and explore from there!</strong></p>
+        </div>
+
+        <h2>Technical Architecture & Modules Used</h2>
+
+        <div class="feature-box">
+            <p><strong>NAVADA is built using modern Python technologies for AI, data processing, and web interfaces.</strong></p>
+        </div>
+
+        <h3>Core Technology Stack</h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Module</th>
+                    <th>Version</th>
+                    <th>Purpose</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>chainlit</code></td>
+                    <td>2.8.0+</td>
+                    <td>Conversational AI user interface framework - handles chat interface, message routing, settings panels, and file uploads</td>
+                </tr>
+                <tr>
+                    <td><code>openai</code></td>
+                    <td>1.0.0+</td>
+                    <td>OpenAI API client for GPT-4o-mini integration - powers natural language understanding, chart intent detection, and Q&A</td>
+                </tr>
+                <tr>
+                    <td><code>pandas</code></td>
+                    <td>2.0.0+</td>
+                    <td>Data manipulation and analysis - handles DataFrame operations, CSV processing, and statistical calculations</td>
+                </tr>
+                <tr>
+                    <td><code>matplotlib</code></td>
+                    <td>3.7.0+</td>
+                    <td>Static chart generation - creates bar charts, scatter plots, line charts, and gauge visualizations</td>
+                </tr>
+                <tr>
+                    <td><code>seaborn</code></td>
+                    <td>0.12.0+</td>
+                    <td>Enhanced statistical visualizations - provides color palettes and styled chart themes</td>
+                </tr>
+                <tr>
+                    <td><code>python-dotenv</code></td>
+                    <td>1.0.0+</td>
+                    <td>Environment variable management - loads API keys from .env file securely</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Application Architecture</h3>
+
+        <div class="example">
+            <h4>System Flow:</h4>
+            <pre><code>User Input (Natural Language)
+    ↓
+Chainlit Message Handler (@cl.on_message)
+    ↓
+Route Detection (7 routes)
+    ├─ Predefined Charts (exact keyword match)
+    ├─ Natural Language Charts (AI intent detection)
+    ├─ Viability Assessment (interactive scoring)
+    ├─ CSV Upload (file processing)
+    └─ General Q&A (GPT-4 analysis)
+    ↓
+Data Processing (Pandas DataFrames)
+    ↓
+Visualization Generation (Matplotlib/Seaborn)
+    ├─ Convert to PNG bytes
+    └─ Attach to Chainlit message
+    ↓
+Display in UI (Inline chart rendering)</code></pre>
+        </div>
+
+        <h3>Key Components</h3>
+
+        <h4>1. Chart Generation Engine (9 Functions)</h4>
+        <ul>
+            <li><code>plot_failure_timeline()</code> - Timeline bar chart with estimated failure years</li>
+            <li><code>plot_funding_vs_burn()</code> - Scatter plot with color-coded outcomes</li>
+            <li><code>plot_sector_comparison()</code> - Bar chart comparing sector averages</li>
+            <li><code>plot_failure_rate_by_country()</code> - Geographic failure analysis</li>
+            <li><code>plot_experience_vs_success()</code> - Experience vs outcome correlation</li>
+            <li><code>plot_viability_gauge()</code> - Circular gauge for viability scores</li>
+            <li><code>plot_custom_chart()</code> - Dynamic chart generator (bar/scatter/line/pie)</li>
+            <li><code>fig_to_bytes()</code> - Converts matplotlib figures to PNG bytes</li>
+            <li><strong>AI Intent Detection</strong> - GPT-4 extracts chart parameters from natural language</li>
+        </ul>
+
+        <h4>2. Viability Scoring Model (8 Factors)</h4>
+        <ul>
+            <li><strong>Runway (18%):</strong> Funding duration = Funding / Burn Rate</li>
+            <li><strong>Experience (14%):</strong> Average founder experience in years</li>
+            <li><strong>Market Size (14%):</strong> Total addressable market in billions</li>
+            <li><strong>Business Model (12%):</strong> Revenue model strength (1-5 scale)</li>
+            <li><strong>Moat (10%):</strong> Competitive defensibility (1-5 scale)</li>
+            <li><strong>Traction (14%):</strong> Current monthly recurring revenue (MRR)</li>
+            <li><strong>Growth (12%):</strong> Month-over-month growth percentage</li>
+            <li><strong>Competition (6%):</strong> Competitive intensity (1-5 scale, inverse weight)</li>
+        </ul>
+
+        <h4>3. Message Routing System (7 Routes)</h4>
+        <ol>
+            <li><strong>Route 1 - Timeline Chart:</strong> Keyword "timeline"</li>
+            <li><strong>Route 2 - Funding vs Burn:</strong> Keyword "funding vs burn"</li>
+            <li><strong>Route 3 - Sector Comparison:</strong> Keyword "sector comparison"</li>
+            <li><strong>Route 4 - Country Analysis:</strong> Keyword "failure rate by country"</li>
+            <li><strong>Route 5 - Experience Chart:</strong> Keyword "experience vs success"</li>
+            <li><strong>Route 6 - Viability Assessment:</strong> Keyword "assess idea" → Interactive 9-question flow</li>
+            <li><strong>Route 7 - Natural Language:</strong> AI-powered intent detection for custom requests</li>
+        </ol>
+
+        <h2>How to Rebuild NAVADA from Scratch</h2>
+
+        <div class="tip">
+            <p><strong>Complete step-by-step guide to recreate this application.</strong> Estimated time: 2-3 hours for experienced developers.</p>
+        </div>
+
+        <h3>Step 1: Environment Setup</h3>
+
+        <h4>1.1 Install Python (3.10 or higher)</h4>
+        <pre><code># Verify Python installation
+python --version  # Should show Python 3.10+
+
+# If not installed, download from python.org</code></pre>
+
+        <h4>1.2 Create Project Directory</h4>
+        <pre><code># Windows
+cd C:\Users\YourName\Desktop
+mkdir navada-rebuild
+cd navada-rebuild
+
+# Mac/Linux
+cd ~/Desktop
+mkdir navada-rebuild
+cd navada-rebuild</code></pre>
+
+        <h4>1.3 Create Virtual Environment</h4>
+        <pre><code># Create virtual environment
+python -m venv venv
+
+# Activate it
+# Windows:
+venv\Scripts\activate
+
+# Mac/Linux:
+source venv/bin/activate</code></pre>
+
+        <h4>1.4 Install Dependencies</h4>
+        <pre><code># Install all required packages
+pip install chainlit==2.8.0
+pip install openai>=1.0.0
+pip install pandas>=2.0.0
+pip install matplotlib>=3.7.0
+pip install seaborn>=0.12.0
+pip install python-dotenv>=1.0.0
+
+# Or create requirements.txt and install:
+pip install -r requirements.txt</code></pre>
+
+        <h3>Step 2: Create Configuration Files</h3>
+
+        <h4>2.1 Create .env file</h4>
+        <pre><code># Create .env in project root
+# Add your OpenAI API key:
+
+OPENAI_API_KEY=sk-your-actual-api-key-here
+
+# Get API key from: https://platform.openai.com/api-keys</code></pre>
+
+        <h4>2.2 Initialize Chainlit Configuration</h4>
+        <pre><code># Initialize Chainlit (creates .chainlit/ folder)
+chainlit init
+
+# This creates .chainlit/config.toml with default settings</code></pre>
+
+        <h4>2.3 Customize config.toml</h4>
+        <pre><code># Edit .chainlit/config.toml
+
+[UI]
+name = "NAVADA"
+description = "AI-Powered Startup Viability Agent"
+cot = "full"
+
+[[UI.header_links]]
+    name = "NAVADA"
+    display_name = "NAVADA"
+    url = "/public/how-to-use.html"
+    icon_url = "https://cdn-icons-png.flaticon.com/512/3209/3209265.png"</code></pre>
+
+        <h3>Step 3: Create the Main Application</h3>
+
+        <h4>3.1 Create app.py file</h4>
+        <pre><code># Create app.py in project root with the following structure:
+
+import os
+import io
+import chainlit as cl
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from openai import OpenAI
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Initialize OpenAI client
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))</code></pre>
+
+        <h4>3.2 Create Sample Dataset</h4>
+        <pre><code># Add to app.py after imports:
+
+data = {
+    "Startup": [
+        "TechX", "Foodly", "EcoGo", "EduSmart", "MediAI", "FinSolve",
+        "Healthify", "GreenCore", "LogistiChain", "RoboAssist",
+        "NeuroStream", "ByteCart"
+    ],
+    "Funding_USD_M": [5.0, 1.2, 0.8, 3.0, 12.0, 7.5, 4.2, 9.8, 15.0, 6.6, 18.0, 2.5],
+    "Burn_Rate_Months": [12, 6, 3, 9, 24, 18, 10, 15, 30, 8, 26, 7],
+    "Founders_Experience_Yrs": [2, 1, 0, 3, 8, 5, 6, 4, 10, 2, 7, 1],
+    "Market_Size_Bn": [50, 5, 2, 15, 80, 60, 25, 40, 100, 20, 120, 8],
+    "Failed": [1, 1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1],
+    "Country": ["UK", "UK", "UK", "UK", "DE", "FR", "US", "UK", "US", "UK", "US", "UK"],
+    "Sector": ["Tech","Food","Transport","EdTech","HealthTech","FinTech",
+                "HealthTech","Energy","Logistics","Robotics","HealthTech","Retail"]
+}
+
+df = pd.DataFrame(data)
+FUNDING_YEAR = 2021
+df["Est_Failure_Year"] = FUNDING_YEAR + (df["Funding_USD_M"] / df["Burn_Rate_Months"])</code></pre>
+
+        <h4>3.3 Create Chart Generation Functions</h4>
+        <pre><code># Add chart functions to app.py:
+
+def fig_to_bytes(fig):
+    """Convert matplotlib figure to PNG bytes."""
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', bbox_inches='tight', dpi=100)
+    buf.seek(0)
+    plt.close(fig)
+    return buf.getvalue()
+
+def plot_failure_timeline(df_in: pd.DataFrame):
+    """Generate timeline bar chart."""
+    fig, ax = plt.subplots(figsize=(12, 6))
+    sorted_df = df_in.sort_values('Est_Failure_Year')
+    colors = ['#ff4444' if f == 1 else '#44ff44' for f in sorted_df['Failed']]
+    ax.barh(sorted_df['Startup'], sorted_df['Est_Failure_Year'], color=colors, alpha=0.7)
+    ax.set_xlabel('Estimated Failure Year', fontsize=12)
+    ax.set_title('Startup Failure Timeline', fontsize=14, fontweight='bold')
+    plt.tight_layout()
+    return fig_to_bytes(fig)
+
+# Implement other chart functions similarly:
+# - plot_funding_vs_burn()
+# - plot_sector_comparison()
+# - plot_failure_rate_by_country()
+# - plot_experience_vs_success()
+# - plot_viability_gauge()
+# - plot_custom_chart()</code></pre>
+
+        <h4>3.4 Create Viability Scoring Function</h4>
+        <pre><code># Add to app.py:
+
+def viability_score(features: dict) -> dict:
+    """Calculate 8-factor viability score (0-100)."""
+
+    # Extract features
+    funding = features.get('funding', 3.0)
+    burn = features.get('burn', 9.0)
+    experience = features.get('experience', 3.0)
+    market = features.get('market', 10.0)
+    biz_model = features.get('biz_model', 3)
+    moat = features.get('moat', 3)
+    mrr = features.get('mrr', 0.0)
+    growth = features.get('growth', 5.0)
+    competition = features.get('competition', 3)
+
+    # Calculate normalized components (0-1 scale)
+    runway_months = (funding / burn) * 12
+    c_runway = min(runway_months / 36, 1.0)  # 36 months = ideal
+    c_exp = min(experience / 10, 1.0)  # 10 years = max
+    c_market = min(market / 100, 1.0)  # $100B = max
+    c_biz = biz_model / 5.0
+    c_moat = moat / 5.0
+    c_traction = min(mrr / 50, 1.0)  # $50k MRR = strong
+    c_growth = min(growth / 20, 1.0)  # 20% = excellent
+    c_comp = 1 - (competition / 5.0)  # Inverse scoring
+
+    # Weighted score (0-100)
+    weights = [0.18, 0.14, 0.14, 0.12, 0.10, 0.14, 0.12, 0.06]
+    components = [c_runway, c_exp, c_market, c_biz, c_moat, c_traction, c_growth, c_comp]
+    score = sum(w * c for w, c in zip(weights, components)) * 100
+
+    return {
+        "score": round(score, 1),
+        "components": {
+            "runway": c_runway,
+            "experience": c_exp,
+            "market": c_market,
+            "business_model": c_biz,
+            "moat": c_moat,
+            "traction": c_traction,
+            "growth": c_growth,
+            "competition": c_comp
+        },
+        "survival_months": runway_months,
+        "est_failure_year": FUNDING_YEAR + (runway_months / 12)
+    }</code></pre>
+
+        <h4>3.5 Create Message Handlers</h4>
+        <pre><code># Add Chainlit event handlers to app.py:
+
+@cl.on_chat_start
+async def start():
+    """Initialize chat session."""
+
+    # Create settings panel with About section
+    settings = await cl.ChatSettings([
+        cl.input_widget.TextInput(
+            id="about",
+            label="📚 About NAVADA",
+            initial="NAVADA (Startup Viability Agent) analyzes startup risk...",
+        ),
+        cl.input_widget.Select(
+            id="quick_actions",
+            label="⚡ Quick Actions",
+            values=["timeline", "funding vs burn", "assess idea"],
+        ),
+    ]).send()
+
+    # Send welcome message
+    await cl.Message(content="**NAVADA**").send()
+
+@cl.on_message
+async def main(message: cl.Message):
+    """Handle incoming messages."""
+    user_input = message.content.lower().strip()
+
+    # Route 1: Timeline chart
+    if user_input == "timeline":
+        png_bytes = plot_failure_timeline(df)
+        msg = cl.Message(content="**Startup Failure Timeline**")
+        await msg.send()
+        image = cl.Image(content=png_bytes, name="timeline.png", display="inline")
+        await image.send(for_id=msg.id)
+        return
+
+    # Route 2: Funding vs Burn
+    if "funding vs burn" in user_input:
+        png_bytes = plot_funding_vs_burn(df)
+        msg = cl.Message(content="**Funding vs Burn Rate Analysis**")
+        await msg.send()
+        image = cl.Image(content=png_bytes, name="funding_burn.png", display="inline")
+        await image.send(for_id=msg.id)
+        return
+
+    # Route 3: Viability Assessment
+    if "assess idea" in user_input:
+        # Start interactive assessment flow
+        # Ask 9 questions, collect responses, calculate score
+        # Display gauge chart with recommendations
+        pass
+
+    # Route 4: Natural Language Charts
+    chart_keywords = ["chart", "plot", "visualize", "show me"]
+    if any(kw in user_input for kw in chart_keywords):
+        # Use GPT-4 to detect intent
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{
+                "role": "system",
+                "content": "Extract chart parameters from user request as JSON..."
+            }, {
+                "role": "user",
+                "content": user_input
+            }],
+            max_tokens=150
+        )
+        # Parse JSON, generate chart
+        pass
+
+    # Route 5: General Q&A
+    else:
+        # Use GPT-4 for analysis
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{
+                "role": "system",
+                "content": f"You are a startup analyst. Dataset: {df.to_dict()}"
+            }, {
+                "role": "user",
+                "content": user_input
+            }],
+            max_tokens=500
+        )
+        await cl.Message(content=response.choices[0].message.content).send()</code></pre>
+
+        <h3>Step 4: Create Documentation</h3>
+
+        <h4>4.1 Create public/ folder</h4>
+        <pre><code># Create folder for static files
+mkdir public</code></pre>
+
+        <h4>4.2 Create how-to-use.html</h4>
+        <pre><code># Create public/how-to-use.html with complete guide
+# (Use the current NAVADA documentation as template)
+
+# Include:
+# - Executive Summary
+# - Problem Statement
+# - Usage Instructions
+# - Technical Architecture (this section!)
+# - Rebuild Guide (this guide!)
+</code></pre>
+
+        <h3>Step 5: Run the Application</h3>
+
+        <h4>5.1 Launch NAVADA</h4>
+        <pre><code># From project directory, activate venv and run:
+chainlit run app.py
+
+# App opens at http://localhost:8000
+# Access documentation at http://localhost:8000/public/how-to-use.html</code></pre>
+
+        <h4>5.2 Test Core Features</h4>
+        <pre><code># Test predefined charts:
+timeline
+funding vs burn
+sector comparison chart
+
+# Test natural language:
+Show me a bar chart of funding by sector
+Create a pie chart of failed vs successful
+
+# Test viability scoring:
+assess idea
+
+# Test Q&A:
+Which sector has the highest failure rate?
+What's the average funding for successful startups?</code></pre>
+
+        <h3>Step 6: Customize and Extend</h3>
+
+        <div class="tip">
+            <p><strong>Enhancement Ideas:</strong></p>
+            <ul>
+                <li><strong>Add more chart types:</strong> Heatmaps, box plots, histograms</li>
+                <li><strong>Implement database storage:</strong> PostgreSQL for persistent data</li>
+                <li><strong>Add authentication:</strong> User accounts with saved sessions</li>
+                <li><strong>Export capabilities:</strong> Download charts as PNG/PDF</li>
+                <li><strong>Real-time data:</strong> Connect to live startup databases (Crunchbase API)</li>
+                <li><strong>Machine learning:</strong> Train predictive models on historical data</li>
+                <li><strong>Multi-chart dashboards:</strong> Generate comprehensive reports</li>
+                <li><strong>Custom color themes:</strong> User-configurable styling</li>
+            </ul>
+        </div>
+
+        <h3>Troubleshooting Common Issues</h3>
+
+        <h4>Issue 1: OpenAI API Errors</h4>
+        <pre><code># Error: "Incorrect API key provided"
+Solution: Check .env file has valid OPENAI_API_KEY
+Verify: echo $OPENAI_API_KEY (Mac/Linux) or echo %OPENAI_API_KEY% (Windows)
+
+# Error: "Rate limit exceeded"
+Solution: Reduce request frequency or upgrade OpenAI plan
+
+# Error: "Model not found"
+Solution: Ensure using "gpt-4o-mini" (not "gpt-4o" or "gpt-4")</code></pre>
+
+        <h4>Issue 2: Chart Not Displaying</h4>
+        <pre><code># Error: "Element.send() missing 1 required positional argument: 'for_id'"
+Solution: Always attach images to parent message:
+    msg = cl.Message(content="Title")
+    await msg.send()
+    image = cl.Image(content=png_bytes, name="chart.png", display="inline")
+    await image.send(for_id=msg.id)  # ← Required!
+
+# Error: Charts appear blank
+Solution: Check matplotlib backend. Add to app.py:
+    import matplotlib
+    matplotlib.use('Agg')  # Non-interactive backend</code></pre>
+
+        <h4>Issue 3: Config Validation Errors</h4>
+        <pre><code># Error: "header_links.0.icon_url Field required"
+Solution: Add icon_url to all header links in config.toml:
+    [[UI.header_links]]
+        icon_url = "https://example.com/icon.png"
+
+# Error: "show_disclaimer is not a valid config option"
+Solution: Remove show_disclaimer line (not supported in Chainlit 2.8.0)</code></pre>
+
+        <h4>Issue 4: Module Import Errors</h4>
+        <pre><code># Error: "No module named 'chainlit'"
+Solution: Ensure virtual environment is activated:
+    # Windows: venv\Scripts\activate
+    # Mac/Linux: source venv/bin/activate
+    pip install chainlit
+
+# Error: "No module named 'openai'"
+Solution: Install OpenAI package:
+    pip install openai>=1.0.0</code></pre>
+
+        <h3>Project File Structure</h3>
+
+        <pre><code>navada-rebuild/
+│
+├── app.py                      # Main application (1,350+ lines)
+├── .env                        # API keys (DO NOT COMMIT!)
+├── requirements.txt            # Python dependencies
+│
+├── .chainlit/
+│   ├── config.toml            # App configuration
+│   └── translations/          # Language files (auto-generated)
+│
+├── public/
+│   └── how-to-use.html        # Documentation page
+│
+├── venv/                      # Virtual environment (DO NOT COMMIT!)
+│
+└── README.md                  # Project documentation</code></pre>
+
+        <h3>Deployment Options</h3>
+
+        <h4>Option 1: Local Development</h4>
+        <pre><code># Run locally for testing
+chainlit run app.py
+
+# Access at http://localhost:8000</code></pre>
+
+        <h4>Option 2: Chainlit Cloud (Recommended)</h4>
+        <pre><code># Deploy to Chainlit's managed hosting
+chainlit deploy
+
+# Follow prompts to authenticate and deploy
+# Automatic HTTPS, scaling, and monitoring</code></pre>
+
+        <h4>Option 3: Docker Container</h4>
+        <pre><code># Create Dockerfile:
+FROM python:3.10-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY . .
+EXPOSE 8000
+CMD ["chainlit", "run", "app.py", "--host", "0.0.0.0"]
+
+# Build and run:
+docker build -t navada .
+docker run -p 8000:8000 --env-file .env navada</code></pre>
+
+        <h4>Option 4: Cloud Platforms</h4>
+        <pre><code># Deploy to:
+- Heroku: heroku create && git push heroku main
+- Railway: railway up
+- Render: Connect GitHub repo, auto-deploy
+- AWS EC2: Launch instance, install dependencies, run app
+- Google Cloud Run: Deploy as container</code></pre>
+
+        <h3>Security Best Practices</h3>
+
+        <div class="tip">
+            <p><strong>Critical Security Considerations:</strong></p>
+            <ul>
+                <li><strong>Never commit .env:</strong> Add to .gitignore immediately</li>
+                <li><strong>Use environment variables:</strong> Never hardcode API keys</li>
+                <li><strong>Validate user input:</strong> Sanitize all file uploads and text inputs</li>
+                <li><strong>Rate limiting:</strong> Prevent API abuse with request limits</li>
+                <li><strong>HTTPS only:</strong> Always use SSL/TLS in production</li>
+                <li><strong>Input validation:</strong> Check CSV file size, format, and contents</li>
+                <li><strong>Error handling:</strong> Don't expose stack traces to users</li>
+                <li><strong>Update dependencies:</strong> Regularly patch security vulnerabilities</li>
+            </ul>
+        </div>
+
+        <h3>Performance Optimization</h3>
+
+        <h4>Tips for Faster Response Times:</h4>
+        <ul>
+            <li><strong>Cache chart images:</strong> Store generated PNGs for repeat requests</li>
+            <li><strong>Lazy load data:</strong> Only load full dataset when needed</li>
+            <li><strong>Optimize prompts:</strong> Shorter GPT-4 prompts = faster responses</li>
+            <li><strong>Use async operations:</strong> Non-blocking I/O for API calls</li>
+            <li><strong>Compress images:</strong> Reduce PNG file sizes with compression</li>
+            <li><strong>Limit chart resolution:</strong> Use dpi=80 for faster generation</li>
+            <li><strong>Batch API calls:</strong> Combine multiple requests where possible</li>
+        </ul>
+
+        <h3>Cost Estimation</h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Component</th>
+                    <th>Cost</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>OpenAI API</strong></td>
+                    <td>$0.15 per 1M input tokens<br>$0.60 per 1M output tokens</td>
+                    <td>GPT-4o-mini pricing. ~$0.001 per chart request + analysis</td>
+                </tr>
+                <tr>
+                    <td><strong>Chainlit Cloud</strong></td>
+                    <td>Free tier: 100 users<br>Pro: $99/month</td>
+                    <td>Includes hosting, SSL, monitoring</td>
+                </tr>
+                <tr>
+                    <td><strong>Self-hosting</strong></td>
+                    <td>$5-20/month</td>
+                    <td>VPS (DigitalOcean, Linode, Vultr)</td>
+                </tr>
+                <tr>
+                    <td><strong>Storage</strong></td>
+                    <td>Free (local)<br>$0.023/GB (AWS S3)</td>
+                    <td>For chart caching and user data</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Additional Resources</h3>
+
+        <div class="feature-box">
+            <h4>Official Documentation:</h4>
+            <ul>
+                <li><strong>Chainlit:</strong> <a href="https://docs.chainlit.io" target="_blank">https://docs.chainlit.io</a></li>
+                <li><strong>OpenAI:</strong> <a href="https://platform.openai.com/docs" target="_blank">https://platform.openai.com/docs</a></li>
+                <li><strong>Pandas:</strong> <a href="https://pandas.pydata.org/docs" target="_blank">https://pandas.pydata.org/docs</a></li>
+                <li><strong>Matplotlib:</strong> <a href="https://matplotlib.org/stable/index.html" target="_blank">https://matplotlib.org/stable/index.html</a></li>
+            </ul>
+
+            <h4>Learning Resources:</h4>
+            <ul>
+                <li><strong>Chainlit Examples:</strong> <a href="https://github.com/Chainlit/chainlit/tree/main/examples" target="_blank">GitHub Examples Repo</a></li>
+                <li><strong>OpenAI Cookbook:</strong> <a href="https://github.com/openai/openai-cookbook" target="_blank">GitHub Cookbook</a></li>
+                <li><strong>Data Visualization:</strong> <a href="https://seaborn.pydata.org/tutorial.html" target="_blank">Seaborn Tutorial</a></li>
+            </ul>
+        </div>
+
+        <h3>Final Notes</h3>
+
+        <div class="example">
+            <p><strong>Total Development Time:</strong> NAVADA represents ~40 hours of development work including:</p>
+            <ul>
+                <li>Core application logic: 20 hours</li>
+                <li>Chart generation functions: 8 hours</li>
+                <li>Viability scoring model: 4 hours</li>
+                <li>Natural language processing: 4 hours</li>
+                <li>Documentation: 4 hours</li>
+            </ul>
+            <p><strong>Lines of Code:</strong> 1,350+ lines (app.py) + 320+ comment lines</p>
+            <p><strong>Documentation:</strong> 8,000+ words across 6 guides</p>
+        </div>
+
+        <h2>Interactive Dashboards</h2>
+
+        <div class="feature-box">
+            <p><strong>NEW FEATURE:</strong> Experience Plotly-powered interactive charts with zoom, hover details, and click functionality. Perfect for detailed exploration and presentations.</p>
+        </div>
+
+        <h3>Available Interactive Charts:</h3>
+
+        <h4>Interactive Scatter Plot Dashboard</h4>
+        <pre><code>You: interactive dashboard
+NAVADA: [Creates zoomable scatter plot with hover details]</code></pre>
+
+        <h4>Interactive Timeline</h4>
+        <pre><code>You: interactive timeline
+NAVADA: [Creates interactive failure timeline with sector info]</code></pre>
+
+        <h4>Multi-Chart Sector Dashboard</h4>
+        <pre><code>You: sector dashboard
+NAVADA: [Creates 4-panel interactive dashboard]</code></pre>
+
+        <h3>Interactive Features:</h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Feature</th>
+                    <th>What It Does</th>
+                    <th>Use Case</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Hover Details</strong></td>
+                    <td>Shows detailed startup information on mouse hover</td>
+                    <td>Quick data exploration without clicking</td>
+                </tr>
+                <tr>
+                    <td><strong>Zoom & Pan</strong></td>
+                    <td>Zoom into specific regions, pan across data</td>
+                    <td>Focus on specific funding ranges or time periods</td>
+                </tr>
+                <tr>
+                    <td><strong>Click to Select</strong></td>
+                    <td>Click on data points for detailed views</td>
+                    <td>Deep dive into individual startups</td>
+                </tr>
+                <tr>
+                    <td><strong>Multi-Panel Layout</strong></td>
+                    <td>Four interconnected charts in sector dashboard</td>
+                    <td>Compare metrics across multiple dimensions</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="tip">
+            <h4>Interactive Dashboard Pro Tips:</h4>
+            <ul>
+                <li><strong>Double-click:</strong> Reset zoom to original view</li>
+                <li><strong>Legend Interaction:</strong> Click legend items to hide/show data series</li>
+                <li><strong>Export Options:</strong> Use Plotly toolbar to save as PNG/HTML</li>
+                <li><strong>Presentation Mode:</strong> Perfect for investor meetings and presentations</li>
+                <li><strong>Mobile Friendly:</strong> Touch gestures work on tablets and phones</li>
+            </ul>
+        </div>
+
+        <h2>Memory & Personas</h2>
+
+        <div class="feature-box">
+            <p><strong>NEW FEATURE:</strong> NAVADA now remembers your conversation history and offers specialized analysis modes. Switch between Investor and Founder perspectives for personalized insights.</p>
+        </div>
+
+        <h3>Available Personas:</h3>
+
+        <h4>🔵 Investor Mode</h4>
+        <pre><code>You: investor mode
+NAVADA: 💼 **INVESTOR MODE** - VC perspective
+I'm now analyzing from a venture capitalist perspective...
+
+You: What should I invest in?
+NAVADA: 🔵 Based on ROI analysis, focus on MediAI ($12M funding,
+HealthTech sector showing 80% success rate)...</code></pre>
+
+        <h4>🟢 Founder Mode</h4>
+        <pre><code>You: founder mode
+NAVADA: 🚀 **FOUNDER MODE** - Entrepreneur perspective
+I'm now analyzing from an experienced founder perspective...
+
+You: How can I reduce burn rate?
+NAVADA: 🟢 Focus on extending runway: Prioritize revenue-generating
+features, delay hiring, negotiate payment terms...</code></pre>
+
+        <h3>Persona Comparison:</h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Aspect</th>
+                    <th>💼 Investor Mode</th>
+                    <th>🚀 Founder Mode</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Focus</strong></td>
+                    <td>ROI, market size, exit strategies</td>
+                    <td>Execution, team building, practical advice</td>
+                </tr>
+                <tr>
+                    <td><strong>Language</strong></td>
+                    <td>Data-driven, financial metrics</td>
+                    <td>Tactical, operational guidance</td>
+                </tr>
+                <tr>
+                    <td><strong>Risk Assessment</strong></td>
+                    <td>Portfolio diversification, due diligence</td>
+                    <td>Operational risks, team challenges</td>
+                </tr>
+                <tr>
+                    <td><strong>Recommendations</strong></td>
+                    <td>Investment milestones, valuation</td>
+                    <td>Growth tactics, product development</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Memory Features:</h3>
+
+        <div class="example">
+            <strong>Example: Conversation Memory</strong>
+            <pre><code>You: Which startup is riskiest?
+NAVADA: 🟢 EcoGo has highest risk (score: 22.1/100)
+
+[Later in conversation...]
+You: Earlier you said EcoGo was risky - show me its burn rate
+NAVADA: 🟢 Remember EcoGo from our earlier discussion.
+Burn rate: 3.2 months (shortest runway in dataset)
+[Shows relevant chart]</code></pre>
+        </div>
+
+        <h2>Auto-Generated Insights</h2>
+
+        <div class="feature-box">
+            <p><strong>NEW FEATURE:</strong> AI-powered analysis automatically detects risks, identifies opportunities, and provides actionable recommendations. Perfect for comprehensive analysis and second opinions.</p>
+        </div>
+
+        <h3>How to Generate Insights:</h3>
+
+        <h4>Manual Insights Generation</h4>
+        <pre><code>You: insights
+NAVADA: 🤖 **Auto-Generated Insights**
+
+⚠️ **Top Risks Detected:**
+- 🔴 High failure rate detected: 50% of startups failed
+- 🔴 Inexperienced teams: Average founder experience is 2.8 years
+
+🎯 **Opportunities Identified:**
+- 🟢 Hot sector identified: HealthTech (avg funding $12.0M)
+- 🟢 Success pattern: Successful startups raised avg $9.1M
+
+💡 **Next Steps:**
+- 💡 Extend runway: Focus on increasing funding or reducing burn rate
+- 💡 Track metrics: Monitor burn rate, customer acquisition, team experience</code></pre>
+
+        <h4>Automatic Insights (During Analysis)</h4>
+        <pre><code>You: analyze TechX performance
+NAVADA: 🟢 TechX shows concerning metrics: $5M funding with 8-month runway...
+
+🤖 **Auto-Generated Insights**
+
+⚠️ **Top Risks Detected:**
+- 🔴 Short runway alert: TechX burn rate is bottom 30%
+
+💡 **Next Steps:**
+- 💡 Immediate funding round recommended
+- 💡 Consider reducing team size by 20%</code></pre>
+
+        <h3>Insight Categories:</h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>What It Detects</th>
+                    <th>Example Output</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>🔴 Risk Detection</strong></td>
+                    <td>High failure rates, short runways, inexperienced teams</td>
+                    <td>"High failure rate: 60% of FinTech startups failed"</td>
+                </tr>
+                <tr>
+                    <td><strong>🟢 Opportunity Identification</strong></td>
+                    <td>Hot sectors, success patterns, undervalued opportunities</td>
+                    <td>"Hot sector: HealthTech showing 80% success rate"</td>
+                </tr>
+                <tr>
+                    <td><strong>💡 Actionable Recommendations</strong></td>
+                    <td>Specific next steps, strategic advice, tactical moves</td>
+                    <td>"Extend runway: Negotiate 6-month payment deferrals"</td>
+                </tr>
+                <tr>
+                    <td><strong>📊 Data Patterns</strong></td>
+                    <td>Statistical trends, correlations, benchmarks</td>
+                    <td>"Successful startups raise 3.2x more funding on average"</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="tip">
+            <h4>Auto-Insights Pro Tips:</h4>
+            <ul>
+                <li><strong>Regular Reviews:</strong> Run "insights" monthly to track changing patterns</li>
+                <li><strong>Context Awareness:</strong> Insights adapt to your current persona (Investor vs Founder)</li>
+                <li><strong>Trigger Words:</strong> Ask "analyze", "evaluate", or "compare" for automatic insights</li>
+                <li><strong>Layered Analysis:</strong> Combine with specific charts for deeper understanding</li>
+                <li><strong>Portfolio Insights:</strong> Works with both individual startups and entire portfolios</li>
+            </ul>
+        </div>
+
+        <h2>Web Scraping & Analysis</h2>
+
+        <div class="feature-box">
+            <p><strong>NEW FEATURE:</strong> Scrape and analyze any website content with AI-powered insights. Perfect for competitor analysis, market research, and content evaluation.</p>
+        </div>
+
+        <h3>How to Use Web Scraping:</h3>
+
+        <h4>Basic Website Scraping</h4>
+        <pre><code>You: scrape https://example.com
+NAVADA: 🔍 Scraping https://example.com...
+✅ **Scraping successful!**
+URL: https://example.com
+Selector: p
+Items scraped: 23
+Content size: 0.15MB
+
+[Shows preview of scraped content]
+
+🤖 **Website Analysis**
+[AI analysis based on current persona]</code></pre>
+
+        <h4>Advanced Scraping with CSS Selectors</h4>
+        <pre><code>You: scrape https://news.site h1,h2
+NAVADA: [Scrapes headlines only]
+
+You: scrape https://blog.com .article
+NAVADA: [Scrapes content by CSS class]
+
+You: scrape https://company.com #about
+NAVADA: [Scrapes specific section by ID]</code></pre>
+
+        <h3>Supported CSS Selectors:</h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Selector</th>
+                    <th>What It Scrapes</th>
+                    <th>Use Case</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>p</code></td>
+                    <td>All paragraphs (default)</td>
+                    <td>General content extraction</td>
+                </tr>
+                <tr>
+                    <td><code>h1,h2,h3</code></td>
+                    <td>Headlines and headings</td>
+                    <td>Article structure analysis</td>
+                </tr>
+                <tr>
+                    <td><code>.class-name</code></td>
+                    <td>Elements with specific CSS class</td>
+                    <td>Targeted content extraction</td>
+                </tr>
+                <tr>
+                    <td><code>#element-id</code></td>
+                    <td>Specific element by ID</td>
+                    <td>Precise section scraping</td>
+                </tr>
+                <tr>
+                    <td><code>div</code></td>
+                    <td>All div containers</td>
+                    <td>General content blocks</td>
+                </tr>
+                <tr>
+                    <td><code>span</code></td>
+                    <td>All span elements</td>
+                    <td>Inline content extraction</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Persona-Specific Analysis:</h3>
+
+        <div class="example">
+            <strong>Investor Mode Analysis:</strong>
+            <pre><code>🔵 **Website Analysis**
+
+**Key Insights:**
+• Market opportunity: $2.5B TAM mentioned across multiple pages
+• Revenue model: SaaS with enterprise focus
+• Competitive advantage: 10x faster processing than competitors
+
+**Investment Considerations:**
+• Strong team credentials (ex-Google, Stanford PhDs)
+• Customer traction: 150+ enterprise clients
+• Funding status: Series A, $15M raised
+
+**Risk Factors:**
+• Heavy dependence on single technology
+• Regulatory uncertainty in target markets</code></pre>
+        </div>
+
+        <div class="example">
+            <strong>Founder Mode Analysis:</strong>
+            <pre><code>🟢 **Website Analysis**
+
+**Actionable Insights:**
+• Content strategy: Focus on technical depth over marketing fluff
+• User experience: Clean, minimal design with clear CTAs
+• Market positioning: Premium pricing strategy
+
+**Execution Opportunities:**
+• Replicate their customer success story format
+• Adopt similar technical documentation structure
+• Consider their partnership strategy approach
+
+**Tactical Recommendations:**
+• Study their SEO keyword strategy
+• Analyze their customer onboarding flow
+• Review their pricing page structure</code></pre>
+        </div>
+
+        <h3>Safety & Limitations:</h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Safety Feature</th>
+                    <th>Limit</th>
+                    <th>Purpose</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Content Size</strong></td>
+                    <td>5MB maximum</td>
+                    <td>Prevent memory issues</td>
+                </tr>
+                <tr>
+                    <td><strong>Request Timeout</strong></td>
+                    <td>15 seconds</td>
+                    <td>Avoid hanging requests</td>
+                </tr>
+                <tr>
+                    <td><strong>URL Validation</strong></td>
+                    <td>HTTP/HTTPS only</td>
+                    <td>Security protection</td>
+                </tr>
+                <tr>
+                    <td><strong>Text Length</strong></td>
+                    <td>2000 chars per item</td>
+                    <td>Filter spam content</td>
+                </tr>
+                <tr>
+                    <td><strong>Analysis Tokens</strong></td>
+                    <td>Top 20 items only</td>
+                    <td>Stay within AI limits</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="tip">
+            <h4>Web Scraping Pro Tips:</h4>
+            <ul>
+                <li><strong>Start Simple:</strong> Use default 'p' selector first, then refine</li>
+                <li><strong>Check Browser:</strong> If scraping fails, verify URL works in your browser</li>
+                <li><strong>Experiment:</strong> Try different selectors (h1, div, span) for better results</li>
+                <li><strong>Follow-up Questions:</strong> Ask about scraped content - it's stored in session memory</li>
+                <li><strong>Persona Switch:</strong> Change between investor/founder mode for different analysis angles</li>
+                <li><strong>Respect Robots.txt:</strong> Be mindful of website scraping policies</li>
+            </ul>
+        </div>
+
+        <h2>Quick Reference: All Commands</h2>
+
+        <div class="example">
+            <strong>Complete Command Reference:</strong>
+            <pre><code><strong>📊 Charts & Visualization:</strong>
+timeline                    - Static failure timeline
+funding vs burn             - Static scatter plot
+interactive dashboard       - Interactive scatter plot
+interactive timeline        - Interactive timeline
+sector dashboard           - Multi-chart dashboard
+
+<strong>🎯 Analysis Tools:</strong>
+assess idea                 - 8-factor viability scoring
+benchmark                   - Compare your idea to dataset
+portfolio                   - Multi-startup heatmap analysis
+insights                    - Auto-generated recommendations
+
+<strong>🔍 Web Scraping:</strong>
+scrape &lt;url&gt;                - Scrape website paragraphs
+scrape &lt;url&gt; &lt;selector&gt;     - Scrape with custom CSS selector
+
+<strong>📄 Reports & Export:</strong>
+generate report             - Full portfolio PDF report
+generate report for [name]  - Single startup PDF report
+
+<strong>🎭 Personas & Memory:</strong>
+investor mode               - Switch to VC perspective
+founder mode               - Switch to entrepreneur perspective
+persona                    - Check current mode
+
+<strong>📁 Data Management:</strong>
+upload csv                 - Upload custom dataset</code></pre>
+        </div>
+
+        <div class="feature-box">
+            <p><strong>You now have everything needed to rebuild NAVADA from scratch!</strong> Follow the steps above, customize to your needs, and deploy your own AI-powered startup analysis platform.</p>
+        </div>
+    </div>
+</body>
+</html>

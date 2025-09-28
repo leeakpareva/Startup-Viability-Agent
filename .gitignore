@@ -1,0 +1,242 @@
+# NAVADA - Startup Viability Agent .gitignore
+
+# =============================
+# ENVIRONMENT & SECRETS
+# =============================
+.env                           # Environment variables (contains API keys)
+.env.local                     # Local environment overrides
+.env.production               # Production environment variables
+*.key                         # Any key files
+secrets.json                  # Secret configuration files
+
+# =============================
+# PYTHON
+# =============================
+__pycache__/                  # Python bytecode cache
+*.py[cod]                     # Python compiled files
+*$py.class                    # Python class files
+*.so                          # Shared objects
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.ENV/
+navada-env/
+startup-env/
+
+# =============================
+# JUPYTER NOTEBOOKS
+# =============================
+.ipynb_checkpoints/           # Jupyter checkpoint files
+*.ipynb                       # Jupyter notebooks (if not needed)
+
+# =============================
+# TESTING
+# =============================
+.pytest_cache/                # Pytest cache
+.coverage                     # Coverage reports
+htmlcov/                      # HTML coverage reports
+.tox/                         # Tox testing
+.nox/                         # Nox testing
+coverage.xml                  # Coverage XML reports
+*.cover                       # Coverage files
+*.py,cover                    # Coverage files
+.hypothesis/                  # Hypothesis testing
+
+# =============================
+# GENERATED FILES
+# =============================
+*.png                         # Generated chart images
+*.pdf                         # Generated PDF reports
+*.html                        # Generated HTML files (except in public/)
+!public/*.html               # Keep HTML files in public directory
+*.csv                         # Uploaded CSV files (user data)
+*.xlsx                        # Excel files
+*.json                        # JSON data files (except config)
+!.chainlit/config.toml       # Keep Chainlit config
+
+# Generated test files
+test_*.png
+test_*.pdf
+test_*.html
+Portfolio_Heatmap_Test.png
+interactive_*.html
+sector_dashboard.html
+
+# =============================
+# CHAINLIT SPECIFIC
+# =============================
+.chainlit/                    # Chainlit cache and sessions
+!.chainlit/config.toml       # Keep configuration file
+.files/                       # Chainlit uploaded files
+
+# =============================
+# LOGS & DEBUGGING
+# =============================
+*.log                         # Log files
+logs/                         # Log directory
+debug.log                     # Debug logs
+error.log                     # Error logs
+
+# =============================
+# OPERATING SYSTEM
+# =============================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# =============================
+# EDITORS & IDEs
+# =============================
+# VSCode
+.vscode/
+*.code-workspace
+.history/
+
+# PyCharm
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# =============================
+# TEMPORARY FILES
+# =============================
+*.tmp                         # Temporary files
+*.temp                        # Temporary files
+.cache/                       # Cache directories
+.temp/                        # Temporary directories
+
+# =============================
+# DEPLOYMENT
+# =============================
+.vercel                       # Vercel deployment
+.netlify                      # Netlify deployment
+.docker/                      # Docker build context
+docker-compose.override.yml   # Docker override
+Dockerfile.dev               # Development Dockerfile
+
+# =============================
+# BACKUP FILES
+# =============================
+*.bak                         # Backup files
+*.backup                      # Backup files
+*.old                         # Old versions
+*_backup.*                    # Backup files with timestamp
+
+# =============================
+# LARGE FILES
+# =============================
+*.zip                         # Large archive files
+*.tar.gz                      # Large archive files
+*.rar                         # Large archive files
+models/                       # Large ML model files
+data/                         # Large datasets
+datasets/                     # Large datasets
+
+# =============================
+# SECURITY
+# =============================
+*.pem                         # Private keys
+*.key                         # Private keys
+*.crt                         # Certificates
+*.p12                         # Certificates
+private/                      # Private directory
+sensitive/                    # Sensitive data directory
+
+# =============================
+# PROJECT SPECIFIC
+# =============================
+# Test output files
+test_interactive_*.html
+test_portfolio_heatmap.png
+test_sector_dashboard.html
+
+# User uploaded data
+user_data/
+uploads/
+custom_datasets/
+
+# Performance profiling
+*.prof
+profile_results/
+
+# API response cache
+.cache_api/
+api_responses/
