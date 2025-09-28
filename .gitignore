@@ -94,6 +94,14 @@ sector_dashboard.html
 .files/                       # Chainlit uploaded files
 
 # =============================
+# RAG SYSTEM / VECTOR DATABASE
+# =============================
+chroma_db/                    # Chroma vector database
+*.db                          # SQLite database files
+embeddings/                   # Cached embeddings
+vector_store/                 # Vector store data
+
+# =============================
 # LOGS & DEBUGGING
 # =============================
 *.log                         # Log files
