@@ -3339,26 +3339,8 @@ async def init_navada_langsmith():
         # Initialize knowledge base
         initialize_knowledge_base()
 
-        # LangSmith-specific welcome message
-        welcome_msg = """
-🚀 **NAVADA - Startup Viability Agent**
-*Powered by LangSmith Platform*
-
-🎯 **Advanced Features Available:**
-- **RAG-Enhanced Analysis** - Intelligent startup knowledge base
-- **Real-time Tracing** - Every interaction monitored
-- **Conversation Memory** - Persistent across sessions
-- **Performance Analytics** - Optimized for scale
-
-Type any command to get started, or try:
-- `investor mode` - Switch to VC perspective
-- `founder mode` - Switch to entrepreneur view
-- `help` - See all available commands
-
-*Ready to analyze your startup's viability! 📊*
-        """
-
-        await cl.Message(content=welcome_msg).send()
+        # Send simple welcome message
+        await cl.Message(content="**NAVADA**").send()
 
     except Exception as e:
         await cl.Message(content=f"⚠️ Initialization issue: {str(e)}. Using standard mode.").send()
