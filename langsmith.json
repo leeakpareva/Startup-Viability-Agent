@@ -1,0 +1,49 @@
+{
+  "name": "navada-startup-agent",
+  "description": "NAVADA - AI-powered Startup Viability Agent with RAG capabilities",
+  "version": "1.0.0",
+  "runtime": "python",
+  "entry_point": "app.py",
+  "environment": {
+    "OPENAI_API_KEY": "${OPENAI_API_KEY}",
+    "LANGSMITH_TRACING": "true",
+    "LANGSMITH_PROJECT": "navada-production",
+    "CHAINLIT_HOST": "0.0.0.0",
+    "CHAINLIT_PORT": "8000"
+  },
+  "dependencies": {
+    "file": "requirements.txt"
+  },
+  "health_check": {
+    "path": "/health",
+    "timeout": 30
+  },
+  "scaling": {
+    "min_instances": 1,
+    "max_instances": 5,
+    "target_cpu": 70
+  },
+  "storage": {
+    "persistent": true,
+    "size": "1GB",
+    "mount_path": "./chroma_db"
+  },
+  "features": {
+    "langsmith_integration": true,
+    "automatic_tracing": true,
+    "conversation_memory": true,
+    "vector_storage": true
+  },
+  "endpoints": {
+    "main": {
+      "type": "chainlit",
+      "framework": "chainlit",
+      "port": 8000
+    },
+    "api": {
+      "type": "rest",
+      "path": "/api",
+      "port": 8001
+    }
+  }
+}

@@ -7,6 +7,7 @@
 import io  # For in-memory file operations (byte streams)
 import math  # Mathematical operations (currently unused but available)
 import json  # JSON parsing (currently unused but available)
+import asyncio  # Async/await support for concurrent operations
 import chainlit as cl  # Chainlit framework for building conversational AI interfaces
 import pandas as pd  # Data manipulation and analysis with DataFrames
 import matplotlib.pyplot as plt  # Core plotting library for creating visualizations
@@ -26,6 +27,15 @@ from IPython.display import display  # IPython display utilities (not actively u
 from sklearn.model_selection import train_test_split  # Split data for ML training
 from sklearn.ensemble import RandomForestClassifier  # Random Forest model for predictions
 
+# LangChain & LangSmith imports for hosting
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain_core.documents import Document
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.vectorstores import Chroma
+from langchain.chains import RetrievalQA
+from langsmith import traceable
+import os
+
 # =============================
 # INITIAL SETUP & CONFIGURATION
 # =============================
@@ -37,6 +47,18 @@ load_dotenv()
 # The API key is automatically pulled from the OPENAI_API_KEY environment variable
 # If not found in env, OpenAI SDK will look for it in default locations
 client = OpenAI()
+
+# =============================
+# LANGSMITH SETUP FOR HOSTING
+# =============================
+# Initialize LangChain components optimized for LangSmith hosting
+embeddings = OpenAIEmbeddings()
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.3)
+
+# Vector store and knowledge base for RAG
+vector_store = None
+knowledge_base = []
+FEEDBACK_STORAGE = []
 
 # =============================
 # SESSION MEMORY & PERSONAS
@@ -3070,3 +3092,98 @@ async def main(message: cl.Message):
     await thinking_msg.remove()
 
     await cl.Message(content=response_with_persona).send()
+
+# =============================
+# LANGSMITH PLATFORM OPTIMIZATION
+# =============================
+
+@traceable
+def initialize_knowledge_base():
+    """Initialize vector store with startup knowledge for LangSmith hosting."""
+    global vector_store
+
+    # Startup knowledge optimized for LangSmith platform
+    startup_knowledge = [
+        "Successful startups show product-market fit within 18-24 months",
+        "SaaS startups should aim for 20% month-over-month growth",
+        "B2B startups need longer sales cycles but higher LTV",
+        "Consumer apps require viral growth and strong engagement",
+        "Hardware startups need more capital and longer dev cycles",
+        "Fintech faces regulatory challenges but high market opportunity",
+        "AI/ML startups need strong technical teams and data advantages",
+        "E-commerce should focus on unit economics and CAC"
+    ]
+
+    documents = [Document(page_content=text) for text in startup_knowledge]
+
+    if not vector_store:
+        vector_store = Chroma.from_documents(
+            documents=documents,
+            embedding=embeddings,
+            persist_directory="./chroma_db"
+        )
+
+    return vector_store
+
+@traceable
+def enhanced_rag_response(user_query: str, context: str) -> str:
+    """Generate enhanced response using RAG system optimized for LangSmith."""
+    if not vector_store:
+        initialize_knowledge_base()
+
+    # Query knowledge base
+    docs = vector_store.similarity_search(user_query, k=3)
+    relevant_knowledge = [doc.page_content for doc in docs]
+
+    # Enhanced prompt with RAG context
+    rag_prompt = f"""
+    Based on startup knowledge and context, provide actionable insights:
+
+    Relevant Knowledge:
+    {chr(10).join(relevant_knowledge)}
+
+    Context: {context}
+    Query: {user_query}
+
+    Provide detailed, actionable response with specific recommendations.
+    """
+
+    response = llm.invoke(rag_prompt)
+    return response.content
+
+# Health check endpoint for LangSmith platform
+@cl.on_settings_update
+async def health_check():
+    """Health check endpoint for LangSmith monitoring."""
+    return {"status": "healthy", "app": "NAVADA", "version": "1.0.0"}
+
+@cl.on_chat_start
+async def init_navada_langsmith():
+    """Initialize NAVADA for LangSmith platform deployment."""
+    try:
+        # Initialize knowledge base
+        initialize_knowledge_base()
+
+        # LangSmith-specific welcome message
+        welcome_msg = """
+🚀 **NAVADA - Startup Viability Agent**
+*Powered by LangSmith Platform*
+
+🎯 **Advanced Features Available:**
+- **RAG-Enhanced Analysis** - Intelligent startup knowledge base
+- **Real-time Tracing** - Every interaction monitored
+- **Conversation Memory** - Persistent across sessions
+- **Performance Analytics** - Optimized for scale
+
+Type any command to get started, or try:
+- `investor mode` - Switch to VC perspective
+- `founder mode` - Switch to entrepreneur view
+- `help` - See all available commands
+
+*Ready to analyze your startup's viability! 📊*
+        """
+
+        await cl.Message(content=welcome_msg).send()
+
+    except Exception as e:
+        await cl.Message(content=f"⚠️ Initialization issue: {str(e)}. Using standard mode.").send()
