@@ -23,10 +23,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application files
 COPY app.py .
 COPY chainlit.md .
-COPY .chainlit/ .chainlit/
 
-# Create necessary directories
-RUN mkdir -p chroma_db
+# Create necessary directories first
+RUN mkdir -p chroma_db .chainlit
+
+# Copy .chainlit directory (optional)
+COPY .chainlit/ .chainlit/
 
 # Expose Chainlit default port
 EXPOSE 8000
