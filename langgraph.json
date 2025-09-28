@@ -1,0 +1,11 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "navada_agent": "./app.py:agent"
+  },
+  "env": ".env",
+  "python_version": "3.11",
+  "pip_config_file": "requirements.txt",
+  "dockerfile_lines": [],
+  "node_version": "20"
+}

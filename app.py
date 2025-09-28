@@ -3187,3 +3187,9 @@ Type any command to get started, or try:
 
     except Exception as e:
         await cl.Message(content=f"⚠️ Initialization issue: {str(e)}. Using standard mode.").send()
+
+# =============================
+# LANGGRAPH AGENT EXPORT
+# =============================
+# Export agent for LangGraph deployment
+agent = cl
