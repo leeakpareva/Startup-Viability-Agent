@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "name": "navada-startup-agent",
+  "builds": [
+    {
+      "src": "app.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "app.py"
+    }
+  ],
+  "env": {
+    "PYTHONPATH": "/var/task"
+  }
+}
