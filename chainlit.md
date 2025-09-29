@@ -1,451 +1,141 @@
 # 🚀 NAVADA - Startup Viability Agent
 
-**AI-Powered Analysis with Voice Support & Real-Time Intelligence**
+**Welcome to NAVADA** - Your AI-powered startup analysis companion! NAVADA helps entrepreneurs, investors, and analysts evaluate startup viability using advanced data science and AI insights.
 
-Welcome to NAVADA, your intelligent startup analysis companion that combines AI expertise with real-time market data and voice interaction.
+## 🎯 What NAVADA Does
 
----
+NAVADA analyzes startup failure patterns, market trends, and financial metrics to provide comprehensive viability assessments. Whether you're a founder validating your idea or an investor evaluating opportunities, NAVADA delivers data-driven insights.
 
-## 🎯 Quick Start (30 Seconds)
+## 🎭 Persona Modes
 
-### Step 1: Your First Commands
-Try these instantly:
-- Type: `timeline`
-- Type: `assess idea`
-- Type: `Show me a bar chart of funding by sector`
+NAVADA adapts its analysis style based on your role:
 
-### Step 2: Understanding NAVADA
-**NAVADA** = **N**ew **A**nalysis & **V**iability **A**ssessment for **D**ata-driven **A**nalysis
-
-NAVADA is your AI-powered startup analyst that:
-- ✅ Generates visual charts automatically
-- ✅ Analyzes startup risk factors
-- ✅ Predicts failure patterns
-- ✅ Scores startup viability (0-100)
-- ✅ Searches real-time market data
-- ✅ Provides voice responses
-
----
-
-## 🎭 Choose Your Mode
-
-### 💼 **Investor Mode**
-Focus on ROI, market analysis, and investment opportunities
-```
-investor mode
-```
+### 👔 **Investor Mode**
+*"Show me the ROI potential and risk factors"*
+- Due diligence focus
+- Risk assessment frameworks
+- Market size analysis
+- Competitive landscape evaluation
+- Financial projections and valuations
+- Exit strategy planning
 
 ### 🚀 **Founder Mode**
-Focus on execution, operations, and tactical recommendations
-```
-founder mode
-```
+*"Help me validate and improve my startup"*
+- Product-market fit guidance
+- Go-to-market strategies
+- Team building advice
+- Fundraising preparation
+- Growth hacking techniques
+- Operational efficiency tips
 
-### 🇬🇧 **UK Economist Mode**
-Focus on macroeconomic analysis, regional factors, and policy impacts
-```
-economist mode
-```
+### 📊 **UK Economist Mode**
+*"Analyze macroeconomic factors affecting startups"*
+- UK market conditions
+- Economic policy impacts
+- Sector-specific trends
+- Regional startup ecosystems
+- Brexit implications
+- Inflation and interest rate effects
 
-### 💰 **Company Analyst Mode**
-Focus on financial health, profitability analysis, and unit economics
-```
-company analyst
-```
+## 🎨 **Image Generation**
+*"Create visual content with DALL-E"*
+- Generate custom images using AI
+- Perfect for presentations, mockups, and creative content
+- Simply type: "generate an image of..." or "create an image showing..."
 
----
+### 📊 **SWOT Analysis Mode**
+*"Comprehensive strategic analysis framework"*
+- **Strengths**: Internal positive factors and competitive advantages
+- **Weaknesses**: Internal areas needing improvement
+- **Opportunities**: External factors to capitalize on
+- **Threats**: External risks and challenges
+- Visual matrix charts with downloadable data
+- AI-powered analysis based on startup context
 
-## 🎯 Three Ways to Use NAVADA
+## 📊 Available Analysis Types
 
-### 1️⃣ **Predefined Chart Commands**
-Type exact keywords for instant charts:
+### **📈 Charts & Visualizations**
+- `timeline` - Startup failure timeline analysis
+- `funding vs burn` - Capital efficiency scatter plots
+- `sector comparison` - Industry benchmarking
+- `risk assessment` - Multi-factor risk analysis
+- `growth trajectory` - Revenue projection charts
 
-| Command | What You Get |
-|---------|-------------|
-| `timeline` | Bar chart showing when each startup will run out of money |
-| `funding vs burn` | Scatter plot showing funding amount vs burn rate (colored by success/failure) |
-| `sector comparison chart` | Bar chart comparing average funding across industries |
-| `failure rate by country` | Color-coded bars showing failure % for UK, US, Germany, France |
-| `experience vs success chart` | Scatter plot showing founder experience vs outcome |
+### **🧮 Mathematical Analysis**
+- Type `math mode` to enter calculation environment
+- IRR calculations: "calculate IRR for 5x return in 7 years"
+- Revenue projections: "project revenue with 20% monthly growth"
+- Monte Carlo simulations: "simulate 1000 scenarios for exit"
+- Burn rate optimization: "optimize burn rate for 18 month runway"
 
-**Example:**
-```
-You: timeline
-NAVADA: [Generates failure timeline chart with 12 startups]
-```
+### **🔍 Market Research**
+- Web scraping and analysis of competitor sites
+- Real-time market data integration
+- Industry trend analysis
+- Regulatory landscape assessment
 
-### 2️⃣ **Natural Language Chart Requests**
-Ask for any chart in plain English:
+### **📋 Viability Scoring**
+Get comprehensive startup scores based on:
+- Team experience and background
+- Market size and competition
+- Financial metrics and projections
+- Product-market fit indicators
+- Technology and IP strength
 
-**Examples:**
-```
-You: Show me a bar chart of funding by startup
-NAVADA: [AI detects intent, generates custom bar chart]
+## 🎯 Quick Start Commands
 
-You: Create a pie chart of successful vs failed companies
-NAVADA: [Generates pie chart with proportions]
+**Change Persona:**
+- "Switch to investor mode"
+- "Change to founder mode"
+- "Use economist mode"
 
-You: Visualize the relationship between market size and funding
-NAVADA: [Creates scatter plot]
-```
+**Generate Images:**
+- "Generate an image of a futuristic startup office"
+- "Create an image showing team collaboration"
+- "Make an image of a product prototype"
 
-**Supported Chart Types:**
-- `bar chart` - Compare categories
-- `scatter plot` - Show relationships
-- `line chart` - Display trends
-- `pie chart` - Show proportions
+**SWOT Analysis:**
+- "SWOT analysis"
+- "Analyze SWOT"
+- "Generate SWOT for my startup"
+- "Show me strengths and weaknesses"
 
-### 3️⃣ **Ask Questions (AI Analysis)**
-Type natural questions about the data:
+**Analysis Commands:**
+- "Analyze my startup idea"
+- "Show me a timeline chart"
+- "Calculate viability score"
+- "Compare funding vs burn rate"
+- "Enter math mode"
 
-**Sample Questions:**
-```
-You: Which sector looks riskiest?
-NAVADA: Based on the data, Transport has a 100% failure rate...
+**Voice Features:**
+- "Voice on" - Enable text-to-speech
+- "Voice off" - Disable audio responses
 
-You: What's the average funding for successful startups?
-NAVADA: Successful startups have an average funding of $11.3M...
+## 📚 Data Sources
 
-You: Why do some startups fail faster than others?
-NAVADA: [Provides detailed analysis based on burn rate, funding, experience factors]
-```
+NAVADA analyzes data from:
+- 1000+ failed startups dataset
+- Real-time market indicators
+- UK economic statistics
+- Industry benchmarking data
+- Regulatory and policy databases
 
----
+## 🔧 Advanced Features
 
-## 🔍 **Real-Time Market Intelligence**
-```
-search AI startups 2024
-latest trends in fintech
-what's happening with blockchain
-current venture capital news
-```
+- **Upload CSV data** for custom analysis
+- **Interactive dashboards** with Plotly charts
+- **Export functionality** for charts and data
+- **Session memory** for context continuity
+- **Multi-modal analysis** combining text, data, and visuals
 
-## 🕸️ **Web Scraping Tool**
+## 💡 Pro Tips
 
-Extract data from any website using CSS selectors:
-
-### Basic Usage:
-```
-scrape https://example.com
-```
-**Default:** Extracts all paragraph text from the webpage
-
-### Advanced Usage with CSS Selectors:
-```
-scrape https://news.site h1,h2              # Extract headlines
-scrape https://startup.com .price           # Extract elements with 'price' class
-scrape https://blog.com article p           # Extract paragraphs from articles
-scrape https://company.com #contact         # Extract element with 'contact' ID
-```
-
-### Real-World Examples:
-```
-scrape https://techcrunch.com h2.post__title   # TechCrunch headlines
-scrape https://ycombinator.com .company        # Y Combinator companies
-scrape https://crunchbase.com .funding-info    # Funding information
-```
-
-### Supported Selectors:
-- **Tags:** `h1`, `h2`, `p`, `div`, `span`, `a`
-- **Classes:** `.classname`, `.multi.class`
-- **IDs:** `#uniqueid`
-- **Attributes:** `[data-price]`, `[href*="funding"]`
-- **Combinations:** `div.article p`, `h1, h2, h3`
-
-### Use Cases:
-- 📊 **Market Research:** Scrape competitor pricing, product features
-- 📰 **News Monitoring:** Extract latest industry headlines and trends
-- 💰 **Funding Data:** Gather investment rounds and startup announcements
-- 🏢 **Company Info:** Extract contact details, team information
-- 📈 **Financial Data:** Pull revenue figures, growth metrics from reports
-
-### Tips for Success:
-- 🔍 **Inspect Element** in your browser to find the right CSS selectors
-- 🎯 **Be Specific** - use class names or IDs for better targeting
-- 🔄 **Try Multiple Selectors** - combine different elements with commas
-- ⚡ **Test First** - start with simple selectors like `h1` or `p`
-
-## 🎤 **Voice Control**
-```
-voice on          # Enable text-to-speech
-voice off         # Disable voice output
-```
-
-## 🧮 **Mathematical Analysis Mode**
-
-### How to Enter Math Mode:
-```
-math mode
-```
-
-### Advanced Calculations Available:
-
-#### 💰 **IRR & Investment Returns**
-```
-calculate IRR for 5x return in 7 years
-```
-**Example Output:** 5x return in 7 years = **25.9% annual return**
-
-#### 📈 **Revenue Projections**
-```
-project revenue with 20% monthly growth
-```
-**Shows:** Starting MRR → Final MRR → Total Growth % → ARR projections
-
-#### 🎯 **Monte Carlo Simulations**
-```
-simulate 1000 scenarios for exit
-```
-**Provides:** Mean/Median exit values, percentiles, best/worst cases
-
-#### 🔥 **Burn Rate Optimization**
-```
-optimize burn rate for 18 month runway
-```
-**Calculates:** Optimal monthly/annual burn rates for desired runway
-
-### Exit Math Mode:
-```
-exit math mode
-```
-
-## 📊 **Interactive Dashboard & Analytics**
-
-### 🚀 **New: Interactive Dashboard Suite**
-```
-dashboard                    # Launch interactive dashboard
-interactive scatter          # Dynamic scatter plots with hover
-correlation heatmap         # Multi-dimensional correlation analysis
-compare startups            # Side-by-side startup comparisons
-filter dashboard fintech   # Apply filters (sector, country, success)
-```
-
-### 📈 **Classic Analytics & Charts**
-```
-show funding vs burn chart
-display growth trajectory
-generate portfolio analysis
-create risk assessment
-```
+1. **Be specific** - "Analyze SaaS startups in fintech" vs "analyze startups"
+2. **Upload your data** - Custom datasets provide better insights
+3. **Use persona modes** - Each mode offers specialized expertise
+4. **Combine analysis types** - Charts + calculations + research for comprehensive views
+5. **Ask follow-up questions** - NAVADA remembers conversation context
 
 ---
 
-## 🎯 Viability Assessment (Interactive Scoring)
-
-### How to Start:
-```
-You: assess idea
-```
-
-### What Happens:
-1. **NAVADA asks 9 questions** about your startup:
-   - Funding amount (USD Millions)
-   - Burn rate (months)
-   - Team experience (years)
-   - Market size (Billions)
-   - Business model strength (1-5)
-   - Moat/defensibility (1-5)
-   - Current MRR ($k)
-   - Monthly growth rate (%)
-   - Competition intensity (1-5)
-
-2. **You provide answers** (or press Enter for defaults)
-
-3. **NAVADA generates:**
-   - Visual gauge showing score (0-100)
-   - Score interpretation: 🟢 Strong | 🟡 Moderate | 🔴 Weak
-   - Estimated runway (months)
-   - Projected failure year
-   - Component breakdown (8 factors)
-   - Actionable recommendations
-
----
-
-## 📄 **Generate Reports**
-```
-generate report
-portfolio analysis
-```
-
----
-
-## 🔧 Features
-
-- **24 Startup Dataset** with enhanced metrics
-- **6 Chart Types** for comprehensive visualization
-- **Mathematical Analysis Mode** with IRR, NPV, Monte Carlo simulations
-- **LangSmith Thread Tracking** for conversation continuity
-- **Brave Search Integration** for real-time market data
-- **OpenAI TTS** for voice responses
-- **PDF Report Generation** for professional presentations
-
----
-
-## 💡 Example Conversations
-
-**For Investors:**
-- "Show me the portfolio heatmap"
-- "Search latest SaaS funding rounds"
-- "Generate investment report for TechFlow"
-
-**For Founders:**
-- "Assess my startup idea"
-- "What's the current state of fintech competition?"
-- "Show growth trajectory analysis"
-
-**For UK Economists:**
-- "Run macro analysis for my London-based startup"
-- "How do interest rates affect our funding strategy?"
-- "Compare regional opportunities across UK cities"
-
-**For Company Analysts:**
-- "Analyze company profitability and unit economics"
-- "Show me break-even analysis and cash runway"
-- "Compare our margins against industry benchmarks"
-
-**For Financial Analysis:**
-- "Enter math mode and calculate 10x return in 5 years"
-- "Project our growth to $1M ARR with current rates"
-- "Simulate 500 exit scenarios for our sector"
-
----
-
-## 📁 Upload Your Own Data
-
-### How to Upload:
-```
-You: upload csv
-NAVADA: [Prompts file upload]
-```
-
-### Required Columns:
-| Column | Description | Example |
-|--------|-------------|---------|
-| `Startup` | Company name | "TechCorp" |
-| `Funding_USD_M` | Funding in millions | 5.5 |
-| `Burn_Rate_Months` | Burn rate | 12 |
-| `Failed` | 0=success, 1=failed | 1 |
-| `Country` | Country code | "UK" |
-| `Sector` | Industry | "HealthTech" |
-
----
-
-## 🐛 Troubleshooting
-
-### Chart Not Generating?
-**Solutions:**
-1. Use exact keywords: `timeline` not "show timeline"
-2. Be explicit: "Create a BAR CHART of X"
-3. Try predefined command first: `sector comparison chart`
-
-**Example:**
-```
-❌ You: timeline please
-✅ You: timeline
-
-❌ You: I want to see funding
-✅ You: Show me a bar chart of funding by startup
-```
-
-### AI Not Understanding Question?
-**Solutions:**
-1. Be more specific
-2. Use column names
-3. Break into smaller questions
-
-**Example:**
-```
-❌ You: What's the best?
-✅ You: Which startup has the highest funding?
-
-❌ You: Show me stuff
-✅ You: Show me a bar chart of Funding_USD_M by Sector
-```
-
----
-
-## 💡 Pro Tips & Tricks
-
-### Tip 1: Chain Commands
-```
-You: timeline
-[Review chart]
-You: Now show me the riskiest sectors
-[Get analysis]
-You: sector comparison chart
-[See visualization]
-```
-
-### Tip 2: Use Follow-up Questions
-```
-You: Which country has highest failure rate?
-NAVADA: UK has 71.4% failure rate (5 out of 7).
-You: Why?
-NAVADA: [Provides detailed analysis]
-You: Show me a chart
-NAVADA: [Generates relevant visualization]
-```
-
-### Tip 3: Combine Data + Charts
-```
-You: What's the average funding for failed startups?
-NAVADA: $2.9M average for failed startups.
-You: Compare that visually with successful startups
-NAVADA: [Generates comparison chart]
-```
-
----
-
-## 📊 Available Data Columns
-
-Use these in your natural language requests:
-
-| Column | Description | Use In Requests |
-|--------|-------------|----------------|
-| `Startup` | Company name | "by Startup", "for each startup" |
-| `Funding_USD_M` | Funding (millions) | "funding amount", "investment" |
-| `Burn_Rate_Months` | Burn rate | "burn rate", "runway" |
-| `Founders_Experience_Yrs` | Founder experience | "experience", "founder years" |
-| `Market_Size_Bn` | Market size (billions) | "market size", "TAM" |
-| `Failed` | Success/Failure | "outcome", "success", "failed" |
-| `Country` | Country code | "by country", "geographic" |
-| `Sector` | Industry | "by sector", "industry", "vertical" |
-| `Est_Failure_Year` | Failure projection | "failure year", "when they fail" |
-
----
-
-## 🎓 Success Metrics
-
-**You're using NAVADA effectively if:**
-- ✅ You can generate charts in < 10 seconds
-- ✅ You understand your data patterns
-- ✅ You get actionable recommendations
-- ✅ You can assess startup viability
-- ✅ You make data-driven decisions
-
----
-
-## 🆘 Need Help?
-
-### Common Commands:
-- `timeline` - Quick test
-- `assess idea` - Interactive guidance
-- `math mode` - Enter mathematical analysis mode
-- `macro analysis` - UK economic impact assessment
-- `company analysis` - Financial health and profitability assessment
-- `search [topic]` - Real-time market data
-- `scrape [url]` - Extract data from websites
-- `voice on/off` - Toggle voice responses
-
-### Ask NAVADA:
-```
-You: How do I create charts?
-You: What commands are available?
-You: Show me an example
-```
-
----
-
-**Ready to start analyzing? Just type your question below! 👇**
-
-**Designed and Developed by Lee Akpareva MBA, MA**
+**Ready to analyze your startup?** Choose your persona mode and start with a specific question or upload your data!

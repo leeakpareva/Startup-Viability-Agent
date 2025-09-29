@@ -6,12 +6,24 @@
 # IMPORTS
 # =============================
 import io  # For in-memory file operations (byte streams)
+import os  # Operating system interface for environment variables and file operations
+import time  # Time-related functions for delays and timing operations
+import re  # Regular expressions for pattern matching and text processing
+import requests  # HTTP library for making API calls
+from datetime import datetime  # Date/time handling for timestamps
+from typing import Dict, List, Optional, Any  # Type hints for better code documentation
+import uuid  # UUID generation for unique identifiers
 import math  # Mathematical operations (currently unused but available)
 import json  # JSON parsing (currently unused but available)
 import asyncio  # Async/await support for concurrent operations
+import logging  # Logging system for error tracking and debugging
+import traceback  # Detailed error tracebacks for debugging
+import functools  # Function decorators and utilities
 import chainlit as cl  # Chainlit framework for building conversational AI interfaces
 import pandas as pd  # Data manipulation and analysis with DataFrames
 import numpy as np  # Numerical operations for calculations
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend for server environments
 import matplotlib.pyplot as plt  # Core plotting library for creating visualizations
 import seaborn as sns  # Statistical data visualization built on matplotlib
 import plotly.express as px  # Interactive plotting library for dynamic visualizations
@@ -26,6 +38,7 @@ import scipy.stats as stats  # Statistical functions for analysis
 import random  # Random number generation for Monte Carlo simulations
 
 from typing import Dict, Any, List, Optional  # Type hints for better code documentation
+from dataclasses import dataclass, field  # For structured data classes
 from openai import OpenAI  # OpenAI API client for GPT model interactions
 from dotenv import load_dotenv  # Load environment variables from .env file
 import uuid  # For generating unique thread/session IDs
@@ -49,32 +62,469 @@ try:
     from langchain.chains import RetrievalQA
     CHROMA_AVAILABLE = True
 except ImportError:
-    try:
-        # Fallback to old import for backward compatibility
-        from langchain_community.vectorstores import Chroma
-        from langchain.chains import RetrievalQA
-        CHROMA_AVAILABLE = True
-    except ImportError:
-        CHROMA_AVAILABLE = False
+    CHROMA_AVAILABLE = False
     print("WARNING: Chroma vector store not available - RAG features disabled")
 from langsmith import traceable, Client as LangSmithClient
 from langsmith.wrappers import wrap_openai
 import langsmith as ls
-import os
+
+# =============================
+# ERROR HANDLING & LOGGING SETUP
+# =============================
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('navada_app.log', mode='a')
+    ]
+)
+logger = logging.getLogger(__name__)
+
+def safe_api_call(func):
+    """Decorator for safe API calls with comprehensive error handling."""
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error in {func.__name__}: {e}")
+            return {"error": f"Network error: {str(e)}", "success": False}
+        except ValueError as e:
+            logger.error(f"Value error in {func.__name__}: {e}")
+            return {"error": f"Invalid data: {str(e)}", "success": False}
+        except KeyError as e:
+            logger.error(f"Missing key in {func.__name__}: {e}")
+            return {"error": f"Missing required field: {str(e)}", "success": False}
+        except Exception as e:
+            logger.error(f"Unexpected error in {func.__name__}: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return {"error": f"Unexpected error: {str(e)}", "success": False}
+    return wrapper
+
+def safe_async_api_call(func):
+    """Decorator for safe async API calls with comprehensive error handling."""
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        try:
+            return await func(*args, **kwargs)
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error in {func.__name__}: {e}")
+            return {"error": f"Network error: {str(e)}", "success": False}
+        except ValueError as e:
+            logger.error(f"Value error in {func.__name__}: {e}")
+            return {"error": f"Invalid data: {str(e)}", "success": False}
+        except KeyError as e:
+            logger.error(f"Missing key in {func.__name__}: {e}")
+            return {"error": f"Missing required field: {str(e)}", "success": False}
+        except Exception as e:
+            logger.error(f"Unexpected error in {func.__name__}: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return {"error": f"Unexpected error: {str(e)}", "success": False}
+    return wrapper
+
+def validate_environment():
+    """Validate environment setup and dependencies."""
+    logger.info("Starting environment validation...")
+
+    issues = []
+
+    # Check critical environment variables
+    required_vars = ["OPENAI_API_KEY"]
+    for var in required_vars:
+        if not os.getenv(var) or os.getenv(var) == "your_openai_api_key_here":
+            issues.append(f"Missing or placeholder value for {var}")
+
+    # Check optional but recommended environment variables
+    optional_vars = {
+        "LANGSMITH_API_KEY": "LangSmith tracing",
+        "SEARCH_API_KEY": "web search functionality",
+        "TTS_PROMPT_ID": "text-to-speech features",
+        "LANGCHAIN_DATABASE_ID": "vector database features"
+    }
+
+    for var, feature in optional_vars.items():
+        value = os.getenv(var)
+        if not value or value.startswith("your_"):
+            logger.warning(f"Optional {var} not configured - {feature} will be disabled")
+
+    # Check critical imports
+    try:
+        import matplotlib.pyplot as plt
+        logger.info("✅ Matplotlib available")
+    except ImportError:
+        issues.append("Matplotlib not available - chart generation will fail")
+
+    try:
+        from langchain_chroma import Chroma
+        logger.info("✅ LangChain Chroma available")
+    except ImportError:
+        issues.append("LangChain Chroma not available - RAG features disabled")
+
+    try:
+        import openai
+        logger.info("✅ OpenAI library available")
+    except ImportError:
+        issues.append("OpenAI library not available - core functionality will fail")
+
+    if issues:
+        logger.error("Environment validation failed:")
+        for issue in issues:
+            logger.error(f"  - {issue}")
+        return False, issues
+    else:
+        logger.info("✅ Environment validation passed")
+        return True, []
+
+def create_startup_health_check():
+    """Perform comprehensive health checks during startup."""
+    logger.info("🔍 Performing startup health checks...")
+
+    # Get environment variables for health checks
+    api_key_check = os.getenv("OPENAI_API_KEY")
+    langsmith_api_key_check = os.getenv("LANGSMITH_API_KEY")
+    search_api_key_check = os.getenv("SEARCH_API_KEY")
+
+    health_status = {
+        "overall": True,
+        "checks": {},
+        "warnings": [],
+        "errors": []
+    }
+
+    # Test matplotlib chart generation
+    try:
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(figsize=(1, 1))
+        ax.plot([1, 2], [1, 2])
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png')
+        plt.close(fig)
+        health_status["checks"]["matplotlib"] = "✅ Working"
+        logger.info("✅ Matplotlib chart generation test passed")
+    except Exception as e:
+        health_status["checks"]["matplotlib"] = f"❌ Failed: {e}"
+        health_status["errors"].append(f"Matplotlib test failed: {e}")
+        health_status["overall"] = False
+        logger.error(f"❌ Matplotlib test failed: {e}")
+
+    # Test OpenAI client initialization
+    try:
+        if api_key_check and api_key_check != "your_openai_api_key_here":
+            # Don't make actual API call, just test client creation
+            from openai import OpenAI
+            test_client = OpenAI(api_key=api_key_check)
+            health_status["checks"]["openai"] = "✅ Client initialized"
+            logger.info("✅ OpenAI client initialization test passed")
+        else:
+            health_status["checks"]["openai"] = "⚠️ No valid API key"
+            health_status["warnings"].append("OpenAI API key not configured")
+            logger.warning("⚠️ OpenAI API key not configured")
+    except Exception as e:
+        health_status["checks"]["openai"] = f"❌ Failed: {e}"
+        health_status["errors"].append(f"OpenAI client test failed: {e}")
+        logger.error(f"❌ OpenAI client test failed: {e}")
+
+    # Test vector store functionality
+    try:
+        if CHROMA_AVAILABLE:
+            # Test basic Chroma functionality without creating actual store
+            from langchain_chroma import Chroma
+            health_status["checks"]["vector_store"] = "✅ Available"
+            logger.info("✅ Vector store (Chroma) available")
+        else:
+            health_status["checks"]["vector_store"] = "❌ Not available"
+            health_status["warnings"].append("Vector store not available - RAG features disabled")
+            logger.warning("⚠️ Vector store not available")
+    except Exception as e:
+        health_status["checks"]["vector_store"] = f"❌ Failed: {e}"
+        health_status["errors"].append(f"Vector store test failed: {e}")
+        logger.error(f"❌ Vector store test failed: {e}")
+
+    # Test search API configuration
+    if search_api_key_check and search_api_key_check != "your_brave_search_api_key_here":
+        health_status["checks"]["search_api"] = "✅ Configured"
+        logger.info("✅ Search API key configured")
+    else:
+        health_status["checks"]["search_api"] = "⚠️ Not configured"
+        health_status["warnings"].append("Search API not configured - web search disabled")
+        logger.warning("⚠️ Search API key not configured")
+
+    # Test LangSmith configuration - need to check after client initialization
+    langsmith_check = langsmith_api_key_check and langsmith_api_key_check != "your_langsmith_api_key_here"
+    if langsmith_check:
+        health_status["checks"]["langsmith"] = "✅ Configured"
+        logger.info("✅ LangSmith API key configured")
+    else:
+        health_status["checks"]["langsmith"] = "⚠️ Not configured"
+        health_status["warnings"].append("LangSmith tracing disabled")
+        logger.warning("⚠️ LangSmith API key not configured")
+
+    # Log summary
+    if health_status["overall"]:
+        logger.info("✅ All critical health checks passed")
+    else:
+        logger.error("❌ Some critical health checks failed")
+
+    if health_status["warnings"]:
+        logger.info(f"⚠️ {len(health_status['warnings'])} warnings found")
+
+    if health_status["errors"]:
+        logger.error(f"❌ {len(health_status['errors'])} errors found")
+
+    return health_status
+
+def retry_on_failure(max_retries=3, delay=1):
+    """Decorator to retry functions on failure with exponential backoff."""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            last_exception = None
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    last_exception = e
+                    if attempt < max_retries - 1:
+                        wait_time = delay * (2 ** attempt)  # Exponential backoff
+                        logger.warning(f"Attempt {attempt + 1} failed for {func.__name__}: {e}. Retrying in {wait_time}s...")
+                        time.sleep(wait_time)
+                    else:
+                        logger.error(f"All {max_retries} attempts failed for {func.__name__}: {e}")
+            raise last_exception
+        return wrapper
+    return decorator
+
+def create_error_recovery_system():
+    """Create a comprehensive error recovery system."""
+    recovery_handlers = {
+        "api_timeout": lambda: "Service temporarily unavailable. Please try again in a moment.",
+        "rate_limit": lambda: "Rate limit exceeded. Please wait a moment before trying again.",
+        "authentication": lambda: "Authentication failed. Please check your API keys configuration.",
+        "network_error": lambda: "Network connection error. Please check your internet connection.",
+        "service_unavailable": lambda: "External service unavailable. Using fallback mode.",
+    }
+
+    return recovery_handlers
+
+# Initialize recovery system
+recovery_system = create_error_recovery_system()
+
+# =============================
+# AUTHENTICATION INTEGRATION
+# =============================
+
+# Import authentication system
+try:
+    from auth_manager import auth_manager
+    AUTH_AVAILABLE = True
+    logger.info("✅ Authentication system loaded")
+except ImportError as e:
+    AUTH_AVAILABLE = False
+    logger.warning(f"⚠️ Authentication system not available: {e}")
+
+def check_user_authentication() -> Dict[str, Any]:
+    """Check if user is authenticated in current session."""
+    if not AUTH_AVAILABLE:
+        return {"authenticated": False, "reason": "auth_system_unavailable"}
+
+    # Check for authentication token in session
+    auth_token = cl.user_session.get("auth_token")
+    session_token = cl.user_session.get("session_token")
+
+    if not auth_token or not session_token:
+        return {"authenticated": False, "reason": "no_token"}
+
+    # Validate session with auth manager
+    session_result = auth_manager.validate_session(session_token)
+
+    if not session_result["valid"]:
+        # Clear invalid session data
+        cl.user_session.set("auth_token", None)
+        cl.user_session.set("session_token", None)
+        cl.user_session.set("user_id", None)
+        cl.user_session.set("username", None)
+        return {"authenticated": False, "reason": "invalid_session"}
+
+    return {
+        "authenticated": True,
+        "user_id": session_result["user_id"],
+        "username": session_result["username"],
+        "email": session_result["email"],
+        "subscription_tier": session_result["subscription_tier"]
+    }
+
+async def show_login_form():
+    """Display login/register form to user."""
+    await cl.Message(
+        content="🔐 **Welcome to NAVADA!** Please log in or register to continue.\n\n"
+               "**Login Instructions:**\n"
+               "• Type: `login username password`\n"
+               "• Example: `login john mypassword123`\n\n"
+               "**Register Instructions:**\n"
+               "• Type: `register username password email`\n"
+               "• Example: `register john mypassword123 john@example.com`\n"
+               "• Email is optional: `register john mypassword123`\n\n"
+               "**Demo Account (for testing):**\n"
+               "• Username: `demo`\n"
+               "• Password: `demo123`\n"
+               "• Type: `login demo demo123`"
+    ).send()
+
+async def handle_login_command(user_input: str) -> bool:
+    """Handle login command and authenticate user."""
+    parts = user_input.strip().split()
+
+    if len(parts) < 3:
+        await cl.Message(
+            content="❌ **Invalid login format**\n\n"
+                   "Please use: `login username password`\n"
+                   "Example: `login john mypassword123`"
+        ).send()
+        return False
+
+    username = parts[1]
+    password = parts[2]
+
+    # Show authentication progress
+    auth_msg = cl.Message(content="🔄 Authenticating...")
+    await auth_msg.send()
+
+    # Attempt authentication
+    auth_result = auth_manager.authenticate_user(username, password)
+
+    if auth_result["success"]:
+        # Store authentication data in session
+        cl.user_session.set("auth_token", auth_result["jwt_token"])
+        cl.user_session.set("session_token", auth_result["session_token"])
+        cl.user_session.set("user_id", auth_result["user_id"])
+        cl.user_session.set("username", auth_result["username"])
+        cl.user_session.set("user_email", auth_result.get("email"))
+        cl.user_session.set("subscription_tier", auth_result.get("subscription_tier", "free"))
+
+        # Update message with success
+        auth_msg.content = f"✅ **Welcome back, {auth_result['username']}!**\n\n" \
+                          f"🎯 **Account Type:** {auth_result.get('subscription_tier', 'free').title()}\n" \
+                          f"📧 **Email:** {auth_result.get('email', 'Not provided')}\n\n" \
+                          f"You can now use all NAVADA features! Type **'help'** to get started."
+        await auth_msg.update()
+
+        # Log the login
+        if AUTH_AVAILABLE:
+            session_id = cl.user_session.get("session_id", get_session_id())
+            auth_manager.log_user_action(
+                auth_result["user_id"],
+                "chainlit_login",
+                "authentication",
+                session_id=session_id
+            )
+
+        return True
+    else:
+        # Update message with error
+        auth_msg.content = f"❌ **Login failed:** {auth_result['error']}\n\n" \
+                          f"Please check your username and password and try again.\n" \
+                          f"Format: `login username password`"
+        await auth_msg.update()
+        return False
+
+async def handle_register_command(user_input: str) -> bool:
+    """Handle register command and create new user."""
+    parts = user_input.strip().split()
+
+    if len(parts) < 3:
+        await cl.Message(
+            content="❌ **Invalid registration format**\n\n"
+                   "Please use: `register username password [email]`\n"
+                   "Examples:\n"
+                   "• `register john mypassword123 john@example.com`\n"
+                   "• `register john mypassword123` (without email)"
+        ).send()
+        return False
+
+    username = parts[1]
+    password = parts[2]
+    email = parts[3] if len(parts) > 3 else None
+
+    # Basic validation
+    if len(username) < 3:
+        await cl.Message(content="❌ Username must be at least 3 characters long").send()
+        return False
+
+    if len(password) < 6:
+        await cl.Message(content="❌ Password must be at least 6 characters long").send()
+        return False
+
+    # Show registration progress
+    reg_msg = cl.Message(content="🔄 Creating account...")
+    await reg_msg.send()
+
+    # Attempt registration
+    reg_result = auth_manager.register_user(username, password, email)
+
+    if reg_result["success"]:
+        # Auto-login after successful registration
+        auth_result = auth_manager.authenticate_user(username, password)
+
+        if auth_result["success"]:
+            # Store authentication data in session
+            cl.user_session.set("auth_token", auth_result["jwt_token"])
+            cl.user_session.set("session_token", auth_result["session_token"])
+            cl.user_session.set("user_id", auth_result["user_id"])
+            cl.user_session.set("username", auth_result["username"])
+            cl.user_session.set("user_email", auth_result.get("email"))
+            cl.user_session.set("subscription_tier", auth_result.get("subscription_tier", "free"))
+
+            # Update message with success
+            reg_msg.content = f"🎉 **Account created successfully!**\n\n" \
+                             f"👤 **Username:** {auth_result['username']}\n" \
+                             f"📧 **Email:** {auth_result.get('email', 'Not provided')}\n" \
+                             f"🎯 **Account Type:** {auth_result.get('subscription_tier', 'free').title()}\n\n" \
+                             f"You're now logged in and ready to use NAVADA! Type **'help'** to get started."
+            await reg_msg.update()
+
+            return True
+
+    # Update message with error
+    reg_msg.content = f"❌ **Registration failed:** {reg_result['error']}\n\n" \
+                     f"Please try a different username or check your details.\n" \
+                     f"Format: `register username password [email]`"
+    await reg_msg.update()
+    return False
+
+# Create demo account on startup if it doesn't exist
+if AUTH_AVAILABLE:
+    try:
+        # Try to create demo account (will fail silently if it already exists)
+        demo_result = auth_manager.register_user("demo", "demo123", "demo@navada.ai")
+        if demo_result["success"]:
+            logger.info("✅ Demo account created: demo/demo123")
+    except Exception:
+        pass  # Demo account likely already exists
 
 # =============================
 # INITIAL SETUP & CONFIGURATION
 # =============================
 # Load environment variables (OPENAI_API_KEY, LANGSMITH_API_KEY) from .env file
 # This keeps sensitive API keys out of the source code
-load_dotenv()
+load_dotenv(override=True)  # Force override of existing environment variables
+
+# Validate environment setup
+env_valid, env_issues = validate_environment()
+if not env_valid:
+    logger.warning("Environment validation found issues - some features may not work correctly")
 
 # Get API keys from environment
 api_key = os.getenv("OPENAI_API_KEY")
-langsmith_api_key = os.getenv("LS_API_KEY")
+langsmith_api_key = os.getenv("LANGSMITH_API_KEY")
 search_api_key = os.getenv("SEARCH_API_KEY")
 tts_prompt_id = os.getenv("TTS_PROMPT_ID")
 langchain_database_id = os.getenv("LANGCHAIN_DATABASE_ID")
+
+# Perform startup health checks after environment variables are loaded
+health_status = create_startup_health_check()
 
 # Configure LangSmith project name for tracing
 LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT", "navada-startup-agent")
@@ -84,9 +534,15 @@ if api_key:
     base_client = OpenAI(api_key=api_key)
     # Wrap with LangSmith if API key is available
     if langsmith_api_key:
-        client = wrap_openai(base_client)
-        langsmith_client = LangSmithClient(api_key=langsmith_api_key)
-        print("SUCCESS: LangSmith tracing enabled")
+        try:
+            client = wrap_openai(base_client)
+            langsmith_client = LangSmithClient(api_key=langsmith_api_key)
+            print("SUCCESS: LangSmith tracing enabled")
+        except Exception as e:
+            print(f"WARNING: LangSmith initialization failed: {e}")
+            print("INFO: Continuing without LangSmith tracing")
+            client = base_client
+            langsmith_client = None
     else:
         client = base_client
         langsmith_client = None
@@ -179,7 +635,17 @@ PERSONAS = {
             "What's your exit strategy and timeline?",
             "How will you use the funding to hit next milestones?"
         ],
-        "charts": ["funding_efficiency", "stage_progression", "market_opportunity", "risk_assessment"]
+        "charts": ["funding_efficiency", "stage_progression", "market_opportunity", "risk_assessment"],
+        "key_recommendations": [
+            "🎯 **Due Diligence First**: Always verify revenue claims, customer references, and team credentials before investing",
+            "📊 **Focus on Unit Economics**: Demand clear LTV/CAC ratios >3:1 and payback period <12 months",
+            "🚀 **Scalability Test**: Look for business models that can 10x revenue without proportional cost increases",
+            "🛡️ **Risk Mitigation**: Diversify portfolio across stages, sectors, and geographies (max 20% in any single bet)",
+            "⏰ **Market Timing**: Invest in companies addressing problems becoming urgent now, not theoretical future needs",
+            "👥 **Team Quality Over Ideas**: Bet on exceptional founders who can pivot and execute, not just good pitches",
+            "💰 **Reserve Capital**: Keep 50% of fund for follow-on investments to support winners and prevent dilution",
+            "📈 **Exit Strategy**: Define clear exit criteria and timelines (typically 5-7 years for venture investments)"
+        ]
     },
     "founder": {
         "name": "Founder Mode",
@@ -202,7 +668,17 @@ PERSONAS = {
             "How are you maintaining founder mental health?",
             "What would you do differently if starting over?"
         ],
-        "charts": ["growth_trajectory", "team_performance", "stage_progression", "market_opportunity"]
+        "charts": ["growth_trajectory", "team_performance", "stage_progression", "market_opportunity"],
+        "key_recommendations": [
+            "🎯 **Customer Obsession**: Talk to 100+ potential customers before writing a single line of code",
+            "🚀 **MVP Philosophy**: Launch with 10% of planned features - speed to market beats perfection every time",
+            "💰 **Cash Management**: Always have 18+ months runway and track burn rate weekly, not monthly",
+            "👥 **Hiring Strategy**: Hire for values and potential, train for skills - culture fit is non-negotiable",
+            "📊 **Metrics That Matter**: Focus on 3-5 KPIs max - revenue growth, customer acquisition, retention",
+            "🔄 **Pivot Signals**: If growth stalls for 3+ months despite effort, seriously consider pivoting",
+            "🎭 **Founder Mental Health**: Build support networks, take breaks, delegate early - burnout kills companies",
+            "📈 **Product-Market Fit**: Don't scale marketing until customers are pulling product from your hands"
+        ]
     },
     "economist": {
         "name": "UK Economist Mode",
@@ -227,7 +703,17 @@ PERSONAS = {
             "How do fiscal policies affect different sectors of the economy?",
             "What market failures justify government intervention in this sector?"
         ],
-        "charts": ["uk_economic_indicators", "inflation_analysis", "sector_performance", "regional_economics"]
+        "charts": ["uk_economic_indicators", "inflation_analysis", "sector_performance", "regional_economics"],
+        "key_recommendations": [
+            "📈 **Interest Rate Strategy**: Monitor Bank of England signals - rising rates favour established businesses over growth startups",
+            "🏠 **Regional Opportunities**: Target regions with government investment (Northern Powerhouse, Midlands Engine) for cost advantages",
+            "💷 **Currency Hedging**: For import/export businesses, hedge GBP exposure given Brexit volatility",
+            "📊 **Inflation Adaptation**: Build pricing flexibility into models - current cost-push inflation requires dynamic pricing",
+            "🎯 **Sector Timing**: Focus on healthcare, green tech, fintech where UK has competitive advantages and policy support",
+            "💼 **Labor Market Navigation**: Leverage UK's skilled workforce in finance, tech, creative industries",
+            "🚀 **Government Incentives**: Maximize R&D tax credits, SEIS/EIS schemes, and green investment incentives",
+            "🌍 **Export Strategy**: Target Commonwealth and EU markets where UK maintains trade relationships and cultural ties"
+        ]
     },
     "company_analyst": {
         "name": "Company Analysis Mode",
@@ -252,7 +738,17 @@ PERSONAS = {
             "What are the key profitability drivers and risks?",
             "How sustainable is the current business model?"
         ],
-        "charts": ["profitability_analysis", "cash_flow_waterfall", "margin_trends", "break_even_chart"]
+        "charts": ["profitability_analysis", "cash_flow_waterfall", "margin_trends", "break_even_chart"],
+        "key_recommendations": [
+            "💰 **Gross Margin Optimization**: Target 70%+ gross margins for SaaS, 40%+ for physical products",
+            "⚡ **Cash Conversion Excellence**: Optimize receivables (30 days), payables (45 days), inventory turnover (12x annually)",
+            "📊 **Unit Economics Clarity**: Know exact cost per customer acquisition and lifetime value by channel",
+            "🎯 **Break-Even Mastery**: Calculate break-even by product, customer segment, and geographic market",
+            "📈 **Working Capital Efficiency**: Minimize working capital requirements through better terms and inventory management",
+            "🚨 **Early Warning System**: Set up alerts for declining margins, extending payment cycles, increasing churn",
+            "💼 **Capital Structure Optimization**: Maintain optimal debt-to-equity ratio for your industry and growth stage",
+            "🔍 **Profitability Drivers**: Identify and focus on the 20% of activities driving 80% of profits"
+        ]
     }
 }
 
@@ -513,6 +1009,457 @@ async def process_math_command(command: str, context: Dict[str, Any]) -> str:
 
     except Exception as e:
         return f"Error in calculation: {str(e)}\n\nPlease try a different calculation or type 'exit math mode'."
+
+# =============================
+# IMAGE GENERATION FUNCTIONALITY
+# =============================
+
+@safe_async_api_call
+async def generate_image(prompt: str, size: str = "1024x1024", quality: str = "standard") -> Dict[str, Any]:
+    """
+    Generate an image using DALL-E 3 based on the provided prompt.
+
+    Args:
+        prompt (str): Description of the image to generate
+        size (str): Image size (default: "1024x1024")
+        quality (str): Image quality "standard" or "hd" (default: "standard")
+
+    Returns:
+        Dict containing the image URL and metadata, or error information
+    """
+    try:
+        logger.info(f"Generating image with prompt: {prompt[:100]}...")
+
+        response = client.images.generate(
+            model="dall-e-3",
+            prompt=prompt,
+            size=size,
+            quality=quality,
+            n=1,
+        )
+
+        image_url = response.data[0].url
+        revised_prompt = response.data[0].revised_prompt
+
+        logger.info("Image generated successfully")
+
+        return {
+            "success": True,
+            "image_url": image_url,
+            "revised_prompt": revised_prompt,
+            "original_prompt": prompt,
+            "size": size,
+            "quality": quality
+        }
+
+    except Exception as e:
+        logger.error(f"Image generation failed: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "original_prompt": prompt
+        }
+
+def detect_image_request(user_input: str) -> bool:
+    """
+    Detect if user is requesting image generation.
+
+    Args:
+        user_input (str): User's message content (lowercased)
+
+    Returns:
+        bool: True if image generation is requested
+    """
+    image_keywords = [
+        "generate an image", "create an image", "make an image", "draw an image",
+        "generate image", "create image", "make image", "draw image",
+        "image of", "picture of", "photo of", "illustration of",
+        "show me", "visualize", "dall-e", "dalle"
+    ]
+
+    return any(keyword in user_input for keyword in image_keywords)
+
+def extract_image_prompt(user_input: str) -> str:
+    """
+    Extract the image description from user input.
+
+    Args:
+        user_input (str): User's message content
+
+    Returns:
+        str: Cleaned image prompt
+    """
+    # Remove common prefixes
+    prefixes_to_remove = [
+        "generate an image of", "create an image of", "make an image of", "draw an image of",
+        "generate image of", "create image of", "make image of", "draw image of",
+        "generate an image showing", "create an image showing", "make an image showing",
+        "show me an image of", "show me", "image of", "picture of", "photo of",
+        "illustration of", "visualize", "dall-e", "dalle"
+    ]
+
+    cleaned_prompt = user_input.lower().strip()
+
+    for prefix in prefixes_to_remove:
+        if cleaned_prompt.startswith(prefix):
+            cleaned_prompt = cleaned_prompt[len(prefix):].strip()
+            break
+
+    # Remove any remaining common words at the start
+    if cleaned_prompt.startswith(("a ", "an ", "the ")):
+        cleaned_prompt = " ".join(cleaned_prompt.split()[1:])
+
+    return cleaned_prompt if cleaned_prompt else user_input
+
+# =============================
+# SWOT ANALYSIS FUNCTIONALITY
+# =============================
+
+@dataclass
+class SWOT:
+    """
+    SWOT Analysis dataclass for structured startup analysis.
+
+    Attributes:
+        strengths: List of internal positive factors
+        weaknesses: List of internal negative factors
+        opportunities: List of external positive factors
+        threats: List of external negative factors
+    """
+    strengths: List[str] = field(default_factory=list)
+    weaknesses: List[str] = field(default_factory=list)
+    opportunities: List[str] = field(default_factory=list)
+    threats: List[str] = field(default_factory=list)
+
+    def summary(self) -> str:
+        """Generate a formatted SWOT summary as a string."""
+        result = "# 📊 SWOT Analysis\n\n"
+
+        result += "## 💪 **Strengths** (Internal Positive)\n"
+        if self.strengths:
+            for strength in self.strengths:
+                result += f"• {strength}\n"
+        else:
+            result += "• *No strengths identified*\n"
+
+        result += "\n## ⚠️ **Weaknesses** (Internal Negative)\n"
+        if self.weaknesses:
+            for weakness in self.weaknesses:
+                result += f"• {weakness}\n"
+        else:
+            result += "• *No weaknesses identified*\n"
+
+        result += "\n## 🚀 **Opportunities** (External Positive)\n"
+        if self.opportunities:
+            for opportunity in self.opportunities:
+                result += f"• {opportunity}\n"
+        else:
+            result += "• *No opportunities identified*\n"
+
+        result += "\n## 🎯 **Threats** (External Negative)\n"
+        if self.threats:
+            for threat in self.threats:
+                result += f"• {threat}\n"
+        else:
+            result += "• *No threats identified*\n"
+
+        return result
+
+    def to_dataframe(self) -> pd.DataFrame:
+        """Convert SWOT to pandas DataFrame for visualization."""
+        max_len = max(
+            len(self.strengths),
+            len(self.weaknesses),
+            len(self.opportunities),
+            len(self.threats)
+        )
+
+        # Pad lists to same length
+        strengths_padded = self.strengths + [''] * (max_len - len(self.strengths))
+        weaknesses_padded = self.weaknesses + [''] * (max_len - len(self.weaknesses))
+        opportunities_padded = self.opportunities + [''] * (max_len - len(self.opportunities))
+        threats_padded = self.threats + [''] * (max_len - len(self.threats))
+
+        return pd.DataFrame({
+            '💪 Strengths': strengths_padded,
+            '⚠️ Weaknesses': weaknesses_padded,
+            '🚀 Opportunities': opportunities_padded,
+            '🎯 Threats': threats_padded
+        })
+
+def plot_swot_matrix(swot: SWOT) -> bytes:
+    """
+    Create a visual SWOT matrix chart.
+
+    Args:
+        swot: SWOT dataclass instance
+
+    Returns:
+        bytes: PNG image data of the SWOT matrix
+    """
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(14, 10))
+    fig.suptitle('📊 SWOT Analysis Matrix', fontsize=16, fontweight='bold', y=0.95)
+
+    # Color scheme
+    colors = {
+        'strengths': '#2E8B57',    # Sea Green
+        'weaknesses': '#DC143C',   # Crimson
+        'opportunities': '#4169E1', # Royal Blue
+        'threats': '#FF8C00'       # Dark Orange
+    }
+
+    # Strengths (Top Left)
+    ax1.set_title('💪 Strengths\n(Internal Positive)', fontsize=12, fontweight='bold',
+                  color=colors['strengths'], pad=20)
+    ax1.axis('off')
+    strengths_text = '\n'.join([f"• {s}" for s in swot.strengths[:8]])  # Limit to 8 items
+    if len(swot.strengths) > 8:
+        strengths_text += f"\n• ... and {len(swot.strengths) - 8} more"
+    ax1.text(0.05, 0.95, strengths_text, transform=ax1.transAxes, fontsize=10,
+             verticalalignment='top', wrap=True)
+    ax1.add_patch(plt.Rectangle((0, 0), 1, 1, fill=False, edgecolor=colors['strengths'],
+                               linewidth=2, transform=ax1.transAxes))
+
+    # Weaknesses (Top Right)
+    ax2.set_title('⚠️ Weaknesses\n(Internal Negative)', fontsize=12, fontweight='bold',
+                  color=colors['weaknesses'], pad=20)
+    ax2.axis('off')
+    weaknesses_text = '\n'.join([f"• {w}" for w in swot.weaknesses[:8]])
+    if len(swot.weaknesses) > 8:
+        weaknesses_text += f"\n• ... and {len(swot.weaknesses) - 8} more"
+    ax2.text(0.05, 0.95, weaknesses_text, transform=ax2.transAxes, fontsize=10,
+             verticalalignment='top', wrap=True)
+    ax2.add_patch(plt.Rectangle((0, 0), 1, 1, fill=False, edgecolor=colors['weaknesses'],
+                               linewidth=2, transform=ax2.transAxes))
+
+    # Opportunities (Bottom Left)
+    ax3.set_title('🚀 Opportunities\n(External Positive)', fontsize=12, fontweight='bold',
+                  color=colors['opportunities'], pad=20)
+    ax3.axis('off')
+    opportunities_text = '\n'.join([f"• {o}" for o in swot.opportunities[:8]])
+    if len(swot.opportunities) > 8:
+        opportunities_text += f"\n• ... and {len(swot.opportunities) - 8} more"
+    ax3.text(0.05, 0.95, opportunities_text, transform=ax3.transAxes, fontsize=10,
+             verticalalignment='top', wrap=True)
+    ax3.add_patch(plt.Rectangle((0, 0), 1, 1, fill=False, edgecolor=colors['opportunities'],
+                               linewidth=2, transform=ax3.transAxes))
+
+    # Threats (Bottom Right)
+    ax4.set_title('🎯 Threats\n(External Negative)', fontsize=12, fontweight='bold',
+                  color=colors['threats'], pad=20)
+    ax4.axis('off')
+    threats_text = '\n'.join([f"• {t}" for t in swot.threats[:8]])
+    if len(swot.threats) > 8:
+        threats_text += f"\n• ... and {len(swot.threats) - 8} more"
+    ax4.text(0.05, 0.95, threats_text, transform=ax4.transAxes, fontsize=10,
+             verticalalignment='top', wrap=True)
+    ax4.add_patch(plt.Rectangle((0, 0), 1, 1, fill=False, edgecolor=colors['threats'],
+                               linewidth=2, transform=ax4.transAxes))
+
+    plt.tight_layout()
+
+    # Convert to bytes
+    return fig_to_bytes(fig)
+
+@safe_async_api_call
+async def generate_swot_analysis(startup_data: Dict[str, Any], context: str = "") -> SWOT:
+    """
+    Generate SWOT analysis using AI based on startup data.
+
+    Args:
+        startup_data: Dictionary containing startup information
+        context: Additional context for analysis
+
+    Returns:
+        SWOT: Populated SWOT analysis object
+    """
+    try:
+        # Prepare the prompt for GPT
+        prompt = f"""
+        As a startup analysis expert, conduct a comprehensive SWOT analysis for the following startup:
+
+        **Startup Information:**
+        {json.dumps(startup_data, indent=2) if startup_data else "No specific data provided"}
+
+        **Additional Context:**
+        {context if context else "General startup analysis"}
+
+        Please provide a detailed SWOT analysis with the following structure:
+
+        **STRENGTHS** (Internal positive factors that give competitive advantage):
+        - List 4-8 key strengths
+
+        **WEAKNESSES** (Internal negative factors that need improvement):
+        - List 4-8 key weaknesses
+
+        **OPPORTUNITIES** (External positive factors to capitalize on):
+        - List 4-8 market opportunities
+
+        **THREATS** (External negative factors that pose risks):
+        - List 4-8 potential threats
+
+        Format your response as:
+        STRENGTHS:
+        - [strength 1]
+        - [strength 2]
+        ...
+
+        WEAKNESSES:
+        - [weakness 1]
+        - [weakness 2]
+        ...
+
+        OPPORTUNITIES:
+        - [opportunity 1]
+        - [opportunity 2]
+        ...
+
+        THREATS:
+        - [threat 1]
+        - [threat 2]
+        ...
+
+        Be specific, actionable, and relevant to the startup's context.
+        """
+
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are a professional startup analyst specializing in SWOT analysis."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=1500
+        )
+
+        content = response.choices[0].message.content
+
+        # Parse the response into SWOT categories
+        swot = SWOT()
+
+        sections = content.split('\n\n')
+        current_section = None
+
+        for line in content.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+
+            if line.upper().startswith('STRENGTHS'):
+                current_section = 'strengths'
+                continue
+            elif line.upper().startswith('WEAKNESSES'):
+                current_section = 'weaknesses'
+                continue
+            elif line.upper().startswith('OPPORTUNITIES'):
+                current_section = 'opportunities'
+                continue
+            elif line.upper().startswith('THREATS'):
+                current_section = 'threats'
+                continue
+
+            # Parse bullet points
+            if line.startswith('-') or line.startswith('•'):
+                item = line[1:].strip()
+                if current_section == 'strengths':
+                    swot.strengths.append(item)
+                elif current_section == 'weaknesses':
+                    swot.weaknesses.append(item)
+                elif current_section == 'opportunities':
+                    swot.opportunities.append(item)
+                elif current_section == 'threats':
+                    swot.threats.append(item)
+
+        return swot
+
+    except Exception as e:
+        logger.error(f"SWOT analysis generation failed: {e}")
+        # Return a basic SWOT with error info
+        return SWOT(
+            strengths=["Analysis capabilities", "Data-driven approach"],
+            weaknesses=["Analysis generation failed", f"Error: {str(e)}"],
+            opportunities=["Retry analysis", "Manual SWOT creation"],
+            threats=["Technical limitations", "API restrictions"]
+        )
+
+# =============================
+# UTILITY FUNCTIONS - DOWNLOAD FUNCTIONALITY
+# =============================
+
+async def send_chart_with_download(png_data: bytes, filename: str, description: str, csv_data: pd.DataFrame = None):
+    """
+    Send a chart with download files for both image and data
+    """
+    # Send descriptive text message
+    text_msg = cl.Message(content=description)
+    await text_msg.send()
+
+    # Send chart image
+    image = cl.Image(content=png_data, name=filename, display="inline")
+    await image.send(for_id=text_msg.id)
+
+    # Create file elements for download
+    download_elements = []
+
+    # Chart download file
+    chart_file = cl.File(
+        name=filename,
+        content=png_data,
+        mime="image/png"
+    )
+    download_elements.append(chart_file)
+
+    # Data download file if CSV data provided
+    if csv_data is not None:
+        csv_filename = filename.replace('.png', '.csv')
+        csv_content = csv_data.to_csv(index=False)
+        data_file = cl.File(
+            name=csv_filename,
+            content=csv_content.encode('utf-8'),
+            mime="text/csv"
+        )
+        download_elements.append(data_file)
+
+    # Send download files
+    download_msg = cl.Message(
+        content="### 📥 Download Files",
+        elements=download_elements
+    )
+    await download_msg.send()
+
+    return text_msg.id
+
+async def send_data_export(data: pd.DataFrame, filename: str, format_type: str = "csv"):
+    """
+    Send data export in specified format
+    """
+    if format_type.lower() == "csv":
+        # Convert to CSV
+        csv_content = data.to_csv(index=False)
+        file_content = csv_content.encode('utf-8')
+        mime_type = "text/csv"
+        file_ext = ".csv"
+    elif format_type.lower() == "json":
+        # Convert to JSON
+        json_content = data.to_json(orient='records', indent=2)
+        file_content = json_content.encode('utf-8')
+        mime_type = "application/json"
+        file_ext = ".json"
+    else:
+        raise ValueError("Unsupported format. Use 'csv' or 'json'")
+
+    # Create file element
+    file_element = cl.File(
+        name=f"{filename}{file_ext}",
+        content=file_content,
+        mime=mime_type
+    )
+
+    # Send file
+    await cl.Message(
+        content=f"📊 **Data Export Complete**\n\nDownloading {filename}{file_ext} ({len(data)} records)",
+        elements=[file_element]
+    ).send()
 
 # =============================
 # UTILITY FUNCTIONS - CHART GENERATION
@@ -2891,6 +3838,20 @@ def get_current_persona() -> Dict[str, str]:
     persona_name = cl.user_session.get("persona", "founder")
     return PERSONAS.get(persona_name, PERSONAS["founder"])
 
+def format_persona_recommendations(persona_name: str) -> str:
+    """Format key recommendations for a persona mode."""
+    persona = PERSONAS.get(persona_name, {})
+    recommendations = persona.get("key_recommendations", [])
+
+    if not recommendations:
+        return ""
+
+    formatted = f"\n\n🎯 **Key {persona.get('name', persona_name)} Recommendations:**\n\n"
+    for rec in recommendations:
+        formatted += f"• {rec}\n\n"
+
+    return formatted
+
 # =============================
 # LANGSMITH THREAD MANAGEMENT
 # =============================
@@ -3446,11 +4407,13 @@ def search_internet(query: str, count: int = 5) -> Dict[str, Any]:
 
         current_run.tags.extend(search_tags)
 
-    if not search_api_key:
+    if not search_api_key or search_api_key == "your_brave_search_api_key_here":
+        logger.warning("Search API key not configured or using placeholder value")
         return {
             "success": False,
-            "error": "Search API key not configured",
-            "results": []
+            "error": "Search API key not configured. Please set SEARCH_API_KEY in your .env file with a valid Brave Search API key.",
+            "results": [],
+            "fallback_available": True
         }
 
     try:
@@ -3498,17 +4461,39 @@ def search_internet(query: str, count: int = 5) -> Dict[str, Any]:
             "total_results": len(results)
         }
 
+    except requests.exceptions.HTTPError as e:
+        logger.error(f"HTTP error during search: {e}")
+        if e.response.status_code == 422:
+            return {
+                "success": False,
+                "error": "Search API authentication failed. Please check your SEARCH_API_KEY in .env file.",
+                "results": [],
+                "fallback_available": True,
+                "status_code": 422
+            }
+        else:
+            return {
+                "success": False,
+                "error": f"Search request failed: HTTP {e.response.status_code}",
+                "results": [],
+                "fallback_available": True
+            }
     except requests.exceptions.RequestException as e:
+        logger.error(f"Network error during search: {e}")
         return {
             "success": False,
             "error": f"Search request failed: {str(e)}",
-            "results": []
+            "results": [],
+            "fallback_available": True
         }
     except Exception as e:
+        logger.error(f"Unexpected error during search: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return {
             "success": False,
             "error": f"Search error: {str(e)}",
-            "results": []
+            "results": [],
+            "fallback_available": True
         }
 
 
@@ -4057,6 +5042,9 @@ def process_with_thread_context(
 # CHAINLIT EVENT HANDLERS
 # =============================
 
+# Action handlers are not needed for this implementation
+# Downloads will be handled through direct file sending
+
 @cl.on_chat_start
 async def start():
     """
@@ -4136,6 +5124,11 @@ async def start():
         "🔹 **latest news** - Current developments in startup ecosystem\n"
         "🔹 **current trends** - Market shifts and opportunities\n"
         "🔹 Auto-triggered for questions about recent events or market updates\n\n"
+        "## 📥 Download & Export:\n\n"
+        "🔹 **Charts** - Download any generated chart as PNG with built-in download buttons\n"
+        "🔹 **export data** / **download csv** - Export complete dataset as CSV\n"
+        "🔹 **export json** / **download json** - Export complete dataset as JSON\n"
+        "🔹 **Data Tables** - Download chart data as CSV alongside visualizations\n\n"
         "## 💬 Get Started:\n\n"
         "• Type **'investor mode'**, **'founder mode'**, or **'economist mode'** to set your perspective\n"
         "• Type **'questions'** to get guided analysis questions\n"
@@ -4459,6 +5452,39 @@ async def main(message: cl.Message):
     global df  # Allow modification of global dataset
 
     # -------------------------
+    # AUTHENTICATION CHECK (DISABLED FOR TESTING)
+    # -------------------------
+    # TESTING MODE: Skip authentication for faster testing
+    # auth_status = check_user_authentication()
+
+    # Set default test user for development
+    auth_status = {
+        "authenticated": True,
+        "username": "test_user",
+        "user_id": "test_123",
+        "email": "test@navada.ai",
+        "subscription_tier": "free"
+    }
+
+    # Allow login and register commands even when not authenticated
+    user_input_raw = message.content.strip()
+    user_input = user_input_raw.lower()
+
+    # Handle authentication commands (commented out for testing)
+    # if user_input.startswith("login "):
+    #     await handle_login_command(user_input_raw)
+    #     return
+
+    # if user_input.startswith("register "):
+    #     await handle_register_command(user_input_raw)
+    #     return
+
+    # If not authenticated and not using auth commands, show login form (disabled)
+    # if not auth_status["authenticated"]:
+    #     await show_login_form()
+    #     return
+
+    # -------------------------
     # THINKING INDICATOR & TIMESTAMP
     # -------------------------
     # Show thinking indicator to provide immediate user feedback
@@ -4538,6 +5564,147 @@ async def main(message: cl.Message):
         return
 
     # =============================
+    # ROUTE 0.7: IMAGE GENERATION
+    # =============================
+    if detect_image_request(user_input):
+        await thinking_msg.remove()
+
+        # Extract the image prompt from user input
+        image_prompt = extract_image_prompt(user_input_raw)
+
+        # Show image generation message
+        generation_msg = cl.Message(content=f"🎨 **Generating image:** {image_prompt}\n\nThis may take a few moments...")
+        await generation_msg.send()
+
+        # Generate the image
+        result = await generate_image(image_prompt)
+
+        if result["success"]:
+            # Create image element from URL
+            image_element = cl.Image(
+                url=result["image_url"],
+                name=f"generated_image_{timestamp.replace(':', '')}.png",
+                display="inline"
+            )
+
+            # Update message with success
+            success_content = f"✅ **Image generated successfully!**\n\n"
+            success_content += f"**Original prompt:** {result['original_prompt']}\n"
+            if result.get('revised_prompt') and result['revised_prompt'] != result['original_prompt']:
+                success_content += f"**DALL-E revised prompt:** {result['revised_prompt']}\n"
+            success_content += f"**Size:** {result['size']} | **Quality:** {result['quality']}"
+
+            await cl.Message(content=success_content, elements=[image_element]).send()
+
+            # Log for conversation tracking
+            auth_manager.save_conversation(
+                user_id=auth_status.get("user_id", "test_123"),
+                chainlit_session_id=cl.user_session.get("session_id", "unknown"),
+                role="user",
+                content=f"Image generation request: {image_prompt}",
+                metadata={"action_type": "image_generation", "prompt": image_prompt}
+            )
+
+            auth_manager.save_conversation(
+                user_id=auth_status.get("user_id", "test_123"),
+                chainlit_session_id=cl.user_session.get("session_id", "unknown"),
+                role="assistant",
+                content=f"Generated image: {result['image_url']}",
+                metadata={"action_type": "image_generated", "image_url": result["image_url"]}
+            )
+
+        else:
+            # Handle error
+            error_content = f"❌ **Image generation failed**\n\n"
+            error_content += f"**Error:** {result['error']}\n"
+            error_content += f"**Prompt:** {result['original_prompt']}\n\n"
+            error_content += "Please try again with a different prompt or check your API configuration."
+
+            await cl.Message(content=error_content).send()
+
+        return
+
+    # =============================
+    # ROUTE 0.8: SWOT ANALYSIS
+    # =============================
+    if "swot" in user_input or ("swot mode" in user_input) or ("analyze swot" in user_input):
+        await thinking_msg.remove()
+
+        # Show SWOT analysis message
+        analysis_msg = cl.Message(content="📊 **Generating SWOT Analysis...**\n\nAnalyzing strengths, weaknesses, opportunities, and threats...")
+        await analysis_msg.send()
+
+        # Gather startup context from user session or create generic context
+        startup_context = {
+            "persona": cl.user_session.get("persona", "founder"),
+            "selected_startup": cl.user_session.get("selected_startup"),
+            "session_id": cl.user_session.get("session_id", "unknown")
+        }
+
+        # Add any available startup data from the dataframe
+        startup_data = {}
+        if df is not None and not df.empty:
+            # Get a sample of startups for context
+            sample_data = df.head(3).to_dict('records')
+            startup_data["sample_startups"] = sample_data
+            startup_data["total_startups"] = len(df)
+            startup_data["sectors"] = df['Sector'].value_counts().head(5).to_dict() if 'Sector' in df.columns else {}
+
+        # Generate SWOT analysis using AI
+        swot_analysis = await generate_swot_analysis(startup_data, user_input_raw)
+
+        # Create SWOT visualization
+        try:
+            swot_chart_png = plot_swot_matrix(swot_analysis)
+
+            # Create SWOT DataFrame for download
+            swot_df = swot_analysis.to_dataframe()
+
+            # Send the comprehensive SWOT analysis
+            swot_summary = swot_analysis.summary()
+
+            await cl.Message(content=swot_summary).send()
+
+            # Send the visual SWOT matrix
+            await send_chart_with_download(
+                png_data=swot_chart_png,
+                filename=f"swot_analysis_{timestamp.replace(':', '')}.png",
+                description="📊 **SWOT Analysis Matrix** - Visual representation of your startup analysis",
+                csv_data=swot_df
+            )
+
+            # Log for conversation tracking
+            auth_manager.save_conversation(
+                user_id=auth_status.get("user_id", "test_123"),
+                chainlit_session_id=cl.user_session.get("session_id", "unknown"),
+                role="user",
+                content=f"SWOT analysis request: {user_input_raw}",
+                metadata={"action_type": "swot_analysis", "context": startup_context}
+            )
+
+            auth_manager.save_conversation(
+                user_id=auth_status.get("user_id", "test_123"),
+                chainlit_session_id=cl.user_session.get("session_id", "unknown"),
+                role="assistant",
+                content="Generated comprehensive SWOT analysis with matrix visualization",
+                metadata={
+                    "action_type": "swot_generated",
+                    "strengths_count": len(swot_analysis.strengths),
+                    "weaknesses_count": len(swot_analysis.weaknesses),
+                    "opportunities_count": len(swot_analysis.opportunities),
+                    "threats_count": len(swot_analysis.threats)
+                }
+            )
+
+        except Exception as e:
+            # Fallback to text-only SWOT if visualization fails
+            error_msg = f"⚠️ **SWOT Analysis Generated** (Chart error: {str(e)})\n\n"
+            error_msg += swot_analysis.summary()
+            await cl.Message(content=error_msg).send()
+
+        return
+
+    # =============================
     # ROUTE 1: FAILURE TIMELINE CHART
     # =============================
     if "timeline" in user_input:
@@ -4551,20 +5718,25 @@ async def main(message: cl.Message):
         # Remove loading message
         await msg.remove()
 
-        # Send descriptive text message
-        text_msg = cl.Message(
-            content=(
+        # Send chart with download options
+        # Select available columns for CSV export
+        preferred_cols = ['Company', 'Total Funding', 'Monthly Burn Rate', 'Estimated Runway (Months)']
+        available_cols = [col for col in preferred_cols if col in df.columns]
+
+        # If no preferred columns exist, use first 4 columns or all if less than 4
+        if not available_cols:
+            available_cols = df.columns.tolist()[:4]
+
+        await send_chart_with_download(
+            png_data=png,
+            filename="failure_timeline.png",
+            description=(
                 "### 📈 Estimated Failure Timeline\n\n"
                 "This chart shows when each startup is projected to fail "
                 "based on their funding and burn rate."
-            )
+            ),
+            csv_data=df[available_cols] if available_cols else df
         )
-        await text_msg.send()
-
-        # Attach chart image to the text message
-        # for_id links the image to the parent message
-        image = cl.Image(content=png, name="failure_timeline.png", display="inline")
-        await image.send(for_id=text_msg.id)
 
         return  # Exit handler, don't process further
 
@@ -5814,7 +6986,19 @@ Look for startups with larger radar areas and balanced performance across dimens
         search_results = search_internet(query, count=5)
 
         if not search_results["success"]:
-            msg.content = f"❌ Search failed: {search_results['error']}"
+            # Provide fallback response with helpful guidance
+            fallback_message = f"❌ Search failed: {search_results['error']}\n\n"
+
+            if search_results.get("fallback_available"):
+                fallback_message += "💡 **Alternative approach**: I can still help you with:\n"
+                fallback_message += "• General startup advice and best practices\n"
+                fallback_message += "• Analysis based on my training data\n"
+                fallback_message += "• Startup failure pattern analysis\n"
+                fallback_message += "• Business model evaluation\n\n"
+                fallback_message += "🔧 **To enable web search**: Please configure a valid Brave Search API key in your .env file.\n"
+                fallback_message += "Visit https://brave.com/search/api/ to get an API key."
+
+            msg.content = fallback_message
             await msg.update()
             return
 
@@ -5906,10 +7090,12 @@ Look for startups with larger radar areas and balanced performance across dimens
 
         cl.user_session.set("persona", "investor")
         persona = get_current_persona()
+        recommendations = format_persona_recommendations("investor")
         await cl.Message(
             content=f"{persona['style']}\n\n"
                    "I'm now analyzing from a **venture capitalist perspective**. "
                    "I'll focus on ROI, market size, competitive analysis, and exit strategies.\n\n"
+                   f"{recommendations}"
                    "**What would you like to analyze today?**\n\n"
                    "💰 **Quick Analysis:**\n"
                    "• Type **'portfolio'** - Investment recommendations across all startups\n"
@@ -5941,10 +7127,12 @@ Look for startups with larger radar areas and balanced performance across dimens
 
         cl.user_session.set("persona", "founder")
         persona = get_current_persona()
+        recommendations = format_persona_recommendations("founder")
         await cl.Message(
             content=f"{persona['style']}\n\n"
                    "I'm now analyzing from an **experienced founder perspective**. "
                    "I'll focus on practical execution, team building, product development, and tactical advice.\n\n"
+                   f"{recommendations}"
                    "**What challenges can I help you tackle today?**\n\n"
                    "🚀 **Quick Assessment:**\n"
                    "• Type **'assess idea'** - Get viability score for your startup concept\n"
@@ -5972,6 +7160,98 @@ Look for startups with larger radar areas and balanced performance across dimens
         return
 
     # =============================
+    # ROUTE: DISPLAY RECOMMENDATIONS
+    # =============================
+    if "recommendations" in user_input or "best practices" in user_input:
+        await thinking_msg.remove()
+
+        current_persona_name = cl.user_session.get("persona", "founder")
+        current_persona = PERSONAS[current_persona_name]
+        recommendations = format_persona_recommendations(current_persona_name)
+
+        await cl.Message(
+            content=f"{current_persona['style']}\n\n"
+                   f"Here are the key recommendations for {current_persona['name']}:"
+                   f"{recommendations}"
+                   "💡 **Want more specific advice?** Ask me about any of these areas, or switch to a different mode:\n"
+                   "• **'investor mode'** - VC investment criteria\n"
+                   "• **'founder mode'** - Tactical execution advice\n"
+                   "• **'economist mode'** - UK economic analysis\n"
+                   "• **'company analyst mode'** - Financial performance focus"
+        ).send()
+        return
+
+    # =============================
+    # ROUTE: USER DASHBOARD & HISTORY
+    # =============================
+    if "dashboard" in user_input or "my conversations" in user_input or "history" in user_input:
+        await thinking_msg.remove()
+
+        if not AUTH_AVAILABLE or not auth_status["authenticated"]:
+            await cl.Message(content="❌ Please log in to view your dashboard.").send()
+            return
+
+        # Get user's conversation history
+        conversations = auth_manager.get_user_conversations(auth_status["user_id"], limit=10)
+
+        if not conversations:
+            await cl.Message(
+                content=f"📊 **Welcome to your NAVADA Dashboard, {auth_status['username']}!**\n\n"
+                       "🎯 **Account Info:**\n"
+                       f"• Username: {auth_status['username']}\n"
+                       f"• Email: {auth_status.get('email', 'Not provided')}\n"
+                       f"• Subscription: {auth_status.get('subscription_tier', 'free').title()}\n\n"
+                       "📝 **Conversation History:** No conversations yet\n\n"
+                       "Start chatting to build your conversation history!"
+            ).send()
+        else:
+            dashboard_content = f"📊 **Welcome to your NAVADA Dashboard, {auth_status['username']}!**\n\n"
+            dashboard_content += "🎯 **Account Info:**\n"
+            dashboard_content += f"• Username: {auth_status['username']}\n"
+            dashboard_content += f"• Email: {auth_status.get('email', 'Not provided')}\n"
+            dashboard_content += f"• Subscription: {auth_status.get('subscription_tier', 'free').title()}\n\n"
+            dashboard_content += f"📝 **Recent Conversations ({len(conversations)}):**\n\n"
+
+            for i, conv in enumerate(conversations, 1):
+                dashboard_content += f"**{i}. {conv['title']}**\n"
+                dashboard_content += f"• Mode: {conv['persona_mode'].title()}\n"
+                dashboard_content += f"• Messages: {conv['message_count']}\n"
+                dashboard_content += f"• Updated: {conv['updated_at'][:19].replace('T', ' ')}\n"
+                dashboard_content += f"• Session ID: `{conv['session_id'][:8]}...`\n\n"
+
+            dashboard_content += "💡 **Tip:** Type 'logout' to end your session securely."
+
+            await cl.Message(content=dashboard_content).send()
+        return
+
+    if user_input == "logout":
+        await thinking_msg.remove()
+
+        if not AUTH_AVAILABLE or not auth_status["authenticated"]:
+            await cl.Message(content="❌ You are not logged in.").send()
+            return
+
+        # Logout user
+        session_token = cl.user_session.get("session_token")
+        if session_token:
+            auth_manager.logout_user(session_token)
+
+        # Clear session data
+        cl.user_session.set("auth_token", None)
+        cl.user_session.set("session_token", None)
+        cl.user_session.set("user_id", None)
+        cl.user_session.set("username", None)
+        cl.user_session.set("user_email", None)
+        cl.user_session.set("subscription_tier", None)
+
+        await cl.Message(
+            content=f"👋 **Goodbye, {auth_status['username']}!**\n\n"
+                   "You have been logged out successfully.\n"
+                   "Type `login username password` to log back in."
+        ).send()
+        return
+
+    # =============================
     # ROUTE: UK ECONOMIST MODE
     # =============================
     if "economist mode" in user_input or "economics mode" in user_input or "uk economy" in user_input:
@@ -5979,10 +7259,12 @@ Look for startups with larger radar areas and balanced performance across dimens
 
         cl.user_session.set("persona", "economist")
         persona = get_current_persona()
+        recommendations = format_persona_recommendations("economist")
 
         await cl.Message(
             content=f"{persona['style']}\n\n"
                     "I'm now analyzing from a **UK economics perspective**, combining macroeconomic trends with startup viability.\n\n"
+                    f"{recommendations}"
                     "**Current UK Economic Context:**\n"
                     "• Bank Rate: 4.75% (affecting cost of capital)\n"
                     "• CPI Inflation: 2.3% (near BoE target)\n"
@@ -6362,7 +7644,23 @@ Look for startups with larger radar areas and balanced performance across dimens
         return
 
     # =============================
-    # ROUTE 11: AI-POWERED Q&A WITH MEMORY & PERSONA (DEFAULT)
+    # ROUTE 12: DATA EXPORT & DOWNLOAD
+    # =============================
+    if any(keyword in user_input for keyword in ["export data", "download data", "export csv", "download csv", "export json", "download json"]):
+        await thinking_msg.remove()
+
+        # Determine export format
+        if "json" in user_input:
+            format_type = "json"
+        else:
+            format_type = "csv"  # Default to CSV
+
+        # Send data export
+        await send_data_export(df, "startup_dataset", format_type)
+        return
+
+    # =============================
+    # ROUTE 13: AI-POWERED Q&A WITH MEMORY & PERSONA (DEFAULT)
     # =============================
     # If no specific pattern matched, use GPT-4 for natural language response
 
@@ -6376,11 +7674,27 @@ Look for startups with larger radar areas and balanced performance across dimens
     # Add user message to memory
     add_to_memory(session_id, "user", message.content)
 
+    # Save user message to database if authenticated
+    if AUTH_AVAILABLE and auth_status["authenticated"]:
+        auth_manager.save_conversation(
+            user_id=auth_status["user_id"],
+            chainlit_session_id=session_id,
+            role="user",
+            content=message.content,
+            persona_mode=get_current_persona()["name"].lower().replace(" mode", ""),
+            metadata={"timestamp": timestamp, "raw_input": user_input_raw}
+        )
+
     # -------------------------
     # PREPARE ENHANCED CONTEXT
     # -------------------------
     # Convert DataFrame to string for inclusion in prompt
     df_str = df.to_string(index=False)
+
+    # Auto-search enhancement for relevant queries
+    search_results = None
+    search_context = ""
+    current_persona_name = cl.user_session.get("persona", "founder")
 
     # -------------------------
     # USE THREAD-AWARE PROCESSING FOR LANGSMITH
@@ -6416,16 +7730,11 @@ Look for startups with larger radar areas and balanced performance across dimens
         )
 
         # Use LangSmith thread management for conversation continuity
-        current_persona_name = cl.user_session.get("persona", "founder")
         current_persona = PERSONAS[current_persona_name]
 
         # Check if we should use conversation history (after first message in session)
         session_metadata = get_session_metadata(session_id)
         use_history = session_metadata["conversation_count"] > 0
-
-        # Auto-search enhancement for relevant queries
-        search_results = None
-        search_context = ""
 
         # Determine if this query would benefit from real-time search
         search_triggers = [
@@ -6474,6 +7783,22 @@ Look for startups with larger radar areas and balanced performance across dimens
     # -------------------------
     # Add AI response to memory
     add_to_memory(session_id, "assistant", ai_response)
+
+    # Save AI response to database if authenticated
+    if AUTH_AVAILABLE and auth_status["authenticated"]:
+        auth_manager.save_conversation(
+            user_id=auth_status["user_id"],
+            chainlit_session_id=session_id,
+            role="assistant",
+            content=ai_response,
+            persona_mode=get_current_persona()["name"].lower().replace(" mode", ""),
+            metadata={
+                "search_used": bool(search_context),
+                "search_results_count": len(search_results.get("results", [])) if search_results else 0,
+                "persona": current_persona_name,
+                "enhanced_with_search": bool(search_context and search_results and search_results["success"])
+            }
+        )
 
     # Add persona indicator to response (with safety check)
     if not ai_response or ai_response.strip() == "":
@@ -6640,4 +7965,4 @@ async def init_navada_langsmith():
 # LANGGRAPH AGENT EXPORT
 # =============================
 # Export agent for LangGraph deployment
-agent = cl
+# agent = cl  # Commented out - incomplete line

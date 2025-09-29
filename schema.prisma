@@ -1,0 +1,107 @@
+// Prisma Schema for NAVADA Startup Agent Database
+generator client {
+  provider = "prisma-client-py"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./navada.db"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  email     String   @unique
+  password  String   // In production, this should be hashed
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  sessions      Session[]
+  conversations Conversation[]
+  swotAnalyses  SwotAnalysis[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  isActive  Boolean  @default(true)
+
+  // Relations
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+
+  @@map("sessions")
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  userId    String
+  sessionId String?
+  role      String   // "user" or "assistant"
+  content   String
+  persona   String   @default("founder") // "founder", "investor", "economist"
+  metadata  String?   // Store additional data as JSON string
+  createdAt DateTime @default(now())
+
+  // Relations
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@map("conversations")
+}
+
+model SwotAnalysis {
+  id            String   @id @default(cuid())
+  userId        String
+  title         String   @default("SWOT Analysis")
+  strengths     String   // JSON string of array
+  weaknesses    String   // JSON string of array
+  opportunities String   // JSON string of array
+  threats       String   // JSON string of array
+  context       String?  // Additional context used for analysis
+  persona       String   @default("founder")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("swot_analyses")
+}
+
+model StartupData {
+  id                String    @id @default(cuid())
+  name              String
+  sector            String?
+  country           String?
+  fundingUsdM       Float?    // Funding in millions USD
+  burnRateMonths    Float?    // Burn rate in months
+  failed            Boolean   @default(false)
+  estFailureYear    Float?    // Estimated failure year
+  teamSize          Int?
+  founderExperience String?   // "high", "medium", "low"
+  marketSize        String?   // "large", "medium", "small"
+  competition       String?   // "high", "medium", "low"
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@map("startup_data")
+}
+
+model UserAction {
+  id          String   @id @default(cuid())
+  userId      String?  // Optional - track anonymous users too
+  action      String   // "chart_generated", "swot_analysis", "image_generated", etc.
+  details     String?  // Store action-specific data as JSON string
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@map("user_actions")
+}
