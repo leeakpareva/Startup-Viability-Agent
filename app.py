@@ -20,6 +20,8 @@ import requests  # HTTP library for making web requests and scraping
 from bs4 import BeautifulSoup  # HTML/XML parser for web scraping
 from urllib.parse import urlparse  # URL validation and parsing utilities
 import re  # Regular expressions for text processing and validation
+import scipy.stats as stats  # Statistical functions for analysis
+import random  # Random number generation for Monte Carlo simulations
 
 from typing import Dict, Any, List, Optional  # Type hints for better code documentation
 from openai import OpenAI  # OpenAI API client for GPT model interactions
@@ -64,6 +66,7 @@ api_key = os.getenv("OPENAI_API_KEY")
 langsmith_api_key = os.getenv("LS_API_KEY")
 search_api_key = os.getenv("SEARCH_API_KEY")
 tts_prompt_id = os.getenv("TTS_PROMPT_ID")
+langchain_database_id = os.getenv("LANGCHAIN_DATABASE_ID")
 
 # Configure LangSmith project name for tracing
 LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT", "navada-startup-agent")
@@ -83,6 +86,50 @@ if api_key:
 else:
     client = OpenAI()  # Will use default OPENAI_API_KEY from environment
     langsmith_client = None
+
+# =============================
+# LANGSMITH THREAD MANAGEMENT
+# =============================
+
+def get_thread_history(thread_id: str, project_name: str):
+    """Get conversation history for a thread using LangSmith."""
+    if not langsmith_client:
+        return []
+
+    try:
+        # Filter runs by the specific thread and project
+        filter_string = f'and(in(metadata_key, ["session_id","conversation_id","thread_id"]), eq(metadata_value, "{thread_id}"))'
+        # Only grab the LLM runs
+        runs = [r for r in langsmith_client.list_runs(project_name=project_name, filter=filter_string, run_type="llm")]
+
+        if not runs:
+            return []
+
+        # Sort by start time to get the most recent interaction
+        runs = sorted(runs, key=lambda run: run.start_time, reverse=True)
+
+        # Build conversation history from runs
+        messages = []
+        for run in reversed(runs):  # Reverse to get chronological order
+            if run.inputs and 'messages' in run.inputs:
+                # Add the user message from inputs
+                user_messages = [msg for msg in run.inputs['messages'] if msg['role'] == 'user']
+                if user_messages:
+                    messages.extend(user_messages)
+
+            if run.outputs and 'choices' in run.outputs:
+                # Add the assistant response
+                assistant_message = {
+                    "role": "assistant",
+                    "content": run.outputs['choices'][0]['message']['content']
+                }
+                messages.append(assistant_message)
+
+        return messages
+
+    except Exception as e:
+        print(f"⚠️ Error getting thread history: {e}")
+        return []
 
 # =============================
 # LANGSMITH SETUP FOR HOSTING
@@ -114,7 +161,6 @@ PERSONAS = {
             "Be direct, quantitative, and challenge assumptions. Reference comparable deals and market dynamics."
         ),
         "style": "**INVESTOR MODE** - VC perspective",
-        "color": "blue",
         "questions": [
             "What's your customer acquisition cost and lifetime value ratio?",
             "How do you plan to achieve 10x returns for investors?",
@@ -138,7 +184,6 @@ PERSONAS = {
             "Be supportive but honest about the challenges ahead. Emphasize learning from failures and building resilience."
         ),
         "style": "**FOUNDER MODE** - Entrepreneur perspective",
-        "color": "green",
         "questions": [
             "How did you discover this problem worth solving?",
             "What's your MVP and how are you validating it?",
@@ -244,6 +289,172 @@ FUNDING_YEAR = 2021
 # This gives us a projection of when each startup would run out of money
 # Example: $5M funding / 12 month burn = 0.42 years runway → fails in 2021.42
 df["Est_Failure_Year"] = FUNDING_YEAR + (df["Funding_USD_M"] / df["Burn_Rate_Months"])
+
+# =============================
+# MATHEMATICAL ANALYSIS FUNCTIONS
+# =============================
+
+def calculate_irr(initial_investment: float, final_value: float, years: float) -> float:
+    """Calculate Internal Rate of Return (IRR) for an investment."""
+    if years <= 0 or initial_investment <= 0:
+        return 0.0
+    return ((final_value / initial_investment) ** (1/years)) - 1
+
+def calculate_npv(cash_flows: List[float], discount_rate: float) -> float:
+    """Calculate Net Present Value (NPV) of cash flows."""
+    npv = 0
+    for i, cash_flow in enumerate(cash_flows):
+        npv += cash_flow / ((1 + discount_rate) ** i)
+    return npv
+
+def project_revenue(current_mrr: float, growth_rate: float, months: int) -> Dict[str, Any]:
+    """Project revenue growth over time."""
+    projections = []
+    monthly_revenue = current_mrr
+
+    for month in range(months + 1):
+        projections.append({
+            'month': month,
+            'mrr': monthly_revenue,
+            'arr': monthly_revenue * 12
+        })
+        monthly_revenue *= (1 + growth_rate)
+
+    return {
+        'projections': projections,
+        'final_mrr': monthly_revenue,
+        'final_arr': monthly_revenue * 12,
+        'total_growth': ((monthly_revenue / current_mrr) - 1) * 100 if current_mrr > 0 else 0
+    }
+
+def monte_carlo_exit_scenarios(scenarios: int, exit_multiples: List[float],
+                             current_revenue: float, growth_scenarios: List[float]) -> Dict[str, Any]:
+    """Run Monte Carlo simulation for exit scenarios."""
+    results = []
+
+    for _ in range(scenarios):
+        # Random exit multiple and growth rate
+        exit_multiple = random.choice(exit_multiples)
+        growth_rate = random.choice(growth_scenarios)
+
+        # Project revenue for 3-5 years
+        years = random.uniform(3, 5)
+        final_revenue = current_revenue * ((1 + growth_rate) ** years)
+        exit_value = final_revenue * exit_multiple
+
+        results.append({
+            'exit_multiple': exit_multiple,
+            'growth_rate': growth_rate,
+            'years_to_exit': years,
+            'final_revenue': final_revenue,
+            'exit_value': exit_value
+        })
+
+    # Calculate statistics
+    exit_values = [r['exit_value'] for r in results]
+
+    return {
+        'scenarios': results,
+        'statistics': {
+            'mean_exit_value': np.mean(exit_values),
+            'median_exit_value': np.median(exit_values),
+            'min_exit_value': np.min(exit_values),
+            'max_exit_value': np.max(exit_values),
+            'std_exit_value': np.std(exit_values),
+            'percentile_25': np.percentile(exit_values, 25),
+            'percentile_75': np.percentile(exit_values, 75)
+        }
+    }
+
+def optimize_burn_rate(target_runway_months: int, current_funding: float) -> Dict[str, Any]:
+    """Calculate optimal burn rate for desired runway."""
+    monthly_burn = current_funding / target_runway_months
+
+    return {
+        'target_runway_months': target_runway_months,
+        'current_funding': current_funding,
+        'optimal_monthly_burn': monthly_burn,
+        'optimal_annual_burn': monthly_burn * 12,
+        'cash_depletion_date': f"In {target_runway_months} months"
+    }
+
+def calculate_startup_metrics(funding: float, burn_rate: float, mrr: float,
+                            growth_rate: float) -> Dict[str, Any]:
+    """Calculate comprehensive startup financial metrics."""
+    runway_months = funding / (burn_rate / 12) if burn_rate > 0 else float('inf')
+
+    # Calculate when startup becomes cash flow positive
+    months_to_profitability = 0
+    current_revenue = mrr * 12  # Convert MRR to ARR
+    current_burn = burn_rate
+
+    if growth_rate > 0 and mrr > 0:
+        while current_revenue < current_burn and months_to_profitability < 120:  # Max 10 years
+            months_to_profitability += 1
+            current_revenue *= (1 + growth_rate/12)  # Monthly compounding
+    else:
+        months_to_profitability = float('inf')
+
+    return {
+        'runway_months': runway_months,
+        'burn_rate_monthly': burn_rate / 12,
+        'current_arr': mrr * 12,
+        'months_to_profitability': months_to_profitability,
+        'cash_flow_positive': months_to_profitability < runway_months,
+        'funding_efficiency': (mrr * 12) / funding if funding > 0 else 0
+    }
+
+async def process_math_command(command: str, context: Dict[str, Any]) -> str:
+    """Process mathematical analysis commands in math mode."""
+    command = command.lower().strip()
+
+    try:
+        if "irr" in command or "return" in command:
+            # Extract values for IRR calculation
+            if "5x" in command and "7 years" in command:
+                irr = calculate_irr(1000000, 5000000, 7)
+                return f"**IRR Calculation:**\n\n5x return in 7 years = **{irr:.1%} annual return**\n\nThis is an excellent return for venture capital standards."
+
+        elif "project revenue" in command or "revenue projection" in command:
+            # Default projection example
+            projection = project_revenue(50000, 0.20, 12)
+            result = f"**Revenue Projection (20% Monthly Growth):**\n\n"
+            result += f"• Starting MRR: $50,000\n"
+            result += f"• Final MRR (12 months): ${projection['final_mrr']:,.0f}\n"
+            result += f"• Final ARR: ${projection['final_arr']:,.0f}\n"
+            result += f"• Total Growth: {projection['total_growth']:.0f}%"
+            return result
+
+        elif "monte carlo" in command or "simulate" in command:
+            # Run Monte Carlo simulation
+            simulation = monte_carlo_exit_scenarios(
+                1000, [3, 5, 8, 10], 1000000, [0.1, 0.2, 0.3, 0.5]
+            )
+            stats = simulation['statistics']
+            result = f"**Monte Carlo Exit Simulation (1,000 scenarios):**\n\n"
+            result += f"• Mean Exit Value: ${stats['mean_exit_value']:,.0f}\n"
+            result += f"• Median Exit Value: ${stats['median_exit_value']:,.0f}\n"
+            result += f"• 25th Percentile: ${stats['percentile_25']:,.0f}\n"
+            result += f"• 75th Percentile: ${stats['percentile_75']:,.0f}\n"
+            result += f"• Best Case: ${stats['max_exit_value']:,.0f}\n"
+            result += f"• Worst Case: ${stats['min_exit_value']:,.0f}"
+            return result
+
+        elif "optimize burn" in command or "burn rate" in command:
+            # Optimize burn rate for runway
+            optimization = optimize_burn_rate(18, 5000000)
+            result = f"**Burn Rate Optimization:**\n\n"
+            result += f"• Target Runway: {optimization['target_runway_months']} months\n"
+            result += f"• Current Funding: ${optimization['current_funding']:,.0f}\n"
+            result += f"• Optimal Monthly Burn: ${optimization['optimal_monthly_burn']:,.0f}\n"
+            result += f"• Optimal Annual Burn: ${optimization['optimal_annual_burn']:,.0f}"
+            return result
+
+        else:
+            return f"**Available Calculations:**\n\n• `calculate IRR for 5x return in 7 years`\n• `project revenue with 20% monthly growth`\n• `simulate 1000 scenarios for exit`\n• `optimize burn rate for 18 month runway`\n\nType your calculation or 'exit math mode' to return."
+
+    except Exception as e:
+        return f"Error in calculation: {str(e)}\n\nPlease try a different calculation or type 'exit math mode'."
 
 # =============================
 # UTILITY FUNCTIONS - CHART GENERATION
@@ -1669,6 +1880,192 @@ def get_current_persona() -> Dict[str, str]:
     return PERSONAS.get(persona_name, PERSONAS["founder"])
 
 # =============================
+# LANGSMITH THREAD MANAGEMENT
+# =============================
+
+def get_thread_history(thread_id: str, project_name: str) -> List[Dict[str, str]]:
+    """
+    Gets a history of all LLM calls in the thread to construct conversation history
+
+    Args:
+        thread_id (str): The thread/session ID to retrieve history for
+        project_name (str): LangSmith project name
+
+    Returns:
+        List[Dict[str, str]]: List of message objects with role and content
+    """
+    if not langsmith_client:
+        return []
+
+    try:
+        # Filter runs by the specific thread and project
+        filter_string = f'and(in(metadata_key, ["session_id","conversation_id","thread_id"]), eq(metadata_value, "{thread_id}"))'
+
+        # Only grab the LLM runs
+        runs = [r for r in langsmith_client.list_runs(
+            project_name=project_name,
+            filter=filter_string,
+            run_type="llm"
+        )]
+
+        # Sort by start time to get chronological order
+        runs = sorted(runs, key=lambda run: run.start_time)
+
+        # Extract conversation history
+        messages = []
+        for run in runs:
+            if hasattr(run, 'inputs') and 'messages' in run.inputs:
+                # Add input messages
+                messages.extend(run.inputs['messages'])
+
+                # Add assistant response
+                if hasattr(run, 'outputs') and 'choices' in run.outputs:
+                    assistant_msg = run.outputs['choices'][0]['message']
+                    messages.append(assistant_msg)
+
+        return messages
+
+    except Exception as e:
+        print(f"Error retrieving thread history: {str(e)}")
+        return []
+
+
+@traceable(
+    name="NAVADA Chat Pipeline",
+    run_type="chain",
+    tags=["navada", "startup-analysis", "conversational-ai"],
+    metadata={
+        "app_name": "navada",
+        "app_version": "2.0.0",
+        "environment": "production"
+    }
+)
+def navada_chat_pipeline(question: str, session_id: str, persona: str, get_chat_history: bool = False) -> str:
+    """
+    Enhanced chat pipeline with LangSmith thread management for NAVADA
+
+    Args:
+        question (str): User's question/input
+        session_id (str): Unique session identifier for thread tracking
+        persona (str): Current persona mode (investor/founder)
+        get_chat_history (bool): Whether to retrieve conversation history
+
+    Returns:
+        str: AI response content
+    """
+    try:
+        # Get current run tree for dynamic metadata and tags
+        current_run = ls.get_current_run_tree()
+
+        # Add dynamic metadata based on current context
+        if current_run:
+            current_run.metadata.update({
+                "session_id": session_id,
+                "persona_mode": persona,
+                "conversation_type": "thread_continuation" if get_chat_history else "new_conversation",
+                "question_length": len(question),
+                "timestamp": pd.Timestamp.now().isoformat()
+            })
+
+            # Add dynamic tags based on persona and question type
+            dynamic_tags = [f"persona-{persona}"]
+
+            # Detect question type and add relevant tags
+            question_lower = question.lower()
+            if "funding" in question_lower or "investment" in question_lower:
+                dynamic_tags.append("funding-analysis")
+            if "market" in question_lower or "competition" in question_lower:
+                dynamic_tags.append("market-analysis")
+            if "team" in question_lower or "founder" in question_lower:
+                dynamic_tags.append("team-analysis")
+            if "chart" in question_lower or "plot" in question_lower or "visualization" in question_lower:
+                dynamic_tags.append("data-visualization")
+
+            current_run.tags.extend(dynamic_tags)
+
+        # Set up LangSmith metadata for thread tracking
+        langsmith_extra = {
+            "project_name": LANGSMITH_PROJECT,
+            "metadata": {
+                "session_id": session_id,
+                "persona": persona,
+                "app": "navada",
+                "trace_type": "chat_pipeline"
+            },
+            "tags": [f"session-{session_id[:8]}", f"persona-{persona}"]
+        }
+
+        # Build conversation context
+        if get_chat_history and langsmith_client:
+            # Get LangSmith thread history
+            thread_messages = get_thread_history(session_id, LANGSMITH_PROJECT)
+
+            # Combine with new user question
+            messages = thread_messages + [{"role": "user", "content": question}]
+        else:
+            # Start fresh conversation
+            messages = [{"role": "user", "content": question}]
+
+        # Get current persona information
+        current_persona = PERSONAS.get(persona, PERSONAS["investor"])
+
+        # Add persona system message if starting fresh or no history
+        if not get_chat_history or not messages:
+            system_msg = {
+                "role": "system",
+                "content": current_persona["system_prompt"]
+            }
+            messages = [system_msg] + messages
+
+        # Create chat completion with LangSmith metadata
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            max_tokens=800,
+            temperature=0.7,
+            langsmith_extra=langsmith_extra
+        )
+
+        return response.choices[0].message.content
+
+    except Exception as e:
+        print(f"Error in NAVADA chat pipeline: {str(e)}")
+        return f"I apologize, but I encountered an error processing your request: {str(e)}"
+
+
+def get_session_metadata(session_id: str) -> Dict[str, Any]:
+    """
+    Get metadata for a session including conversation count and current persona
+
+    Args:
+        session_id (str): Session identifier
+
+    Returns:
+        Dict[str, Any]: Session metadata
+    """
+    if not langsmith_client:
+        return {"conversation_count": 0, "persona": "investor"}
+
+    try:
+        filter_string = f'and(in(metadata_key, ["session_id"]), eq(metadata_value, "{session_id}"))'
+        runs = list(langsmith_client.list_runs(
+            project_name=LANGSMITH_PROJECT,
+            filter=filter_string,
+            run_type="llm"
+        ))
+
+        return {
+            "conversation_count": len(runs),
+            "persona": runs[-1].extra.get("metadata", {}).get("persona", "investor") if runs else "investor",
+            "last_interaction": runs[-1].start_time if runs else None
+        }
+
+    except Exception as e:
+        print(f"Error getting session metadata: {str(e)}")
+        return {"conversation_count": 0, "persona": "investor"}
+
+
+# =============================
 # AUTO-GENERATED INSIGHTS FUNCTIONS
 # =============================
 
@@ -1997,6 +2394,12 @@ def analyze_scraped_content(scraped_data: pd.DataFrame, url: str, persona: Dict[
 # INTERNET SEARCH FUNCTIONALITY
 # =============================
 
+@traceable(
+    name="NAVADA Internet Search",
+    run_type="tool",
+    tags=["navada", "search", "brave-api", "market-intelligence"],
+    metadata={"tool_type": "internet_search", "api_provider": "brave_search"}
+)
 def search_internet(query: str, count: int = 5) -> Dict[str, Any]:
     """
     Search the internet using Brave Search API
@@ -2008,6 +2411,30 @@ def search_internet(query: str, count: int = 5) -> Dict[str, Any]:
     Returns:
         dict: Search results with titles, descriptions, and URLs
     """
+    # Add dynamic metadata to current run
+    current_run = ls.get_current_run_tree()
+    if current_run:
+        current_run.metadata.update({
+            "search_query": query,
+            "requested_count": count,
+            "query_length": len(query),
+            "timestamp": pd.Timestamp.now().isoformat()
+        })
+
+        # Add query-specific tags
+        query_lower = query.lower()
+        search_tags = []
+        if "startup" in query_lower:
+            search_tags.append("startup-search")
+        if "funding" in query_lower or "investment" in query_lower:
+            search_tags.append("funding-search")
+        if "market" in query_lower:
+            search_tags.append("market-research")
+        if "competition" in query_lower:
+            search_tags.append("competitive-analysis")
+
+        current_run.tags.extend(search_tags)
+
     if not search_api_key:
         return {
             "success": False,
@@ -2074,7 +2501,7 @@ def search_internet(query: str, count: int = 5) -> Dict[str, Any]:
         }
 
 
-def analyze_search_results(search_data: Dict[str, Any], persona: Dict[str, str], context: str = "") -> str:
+def analyze_search_results(search_data: Dict[str, Any], persona: Dict[str, str], context: str = "", session_id: str = None) -> str:
     """
     Analyze search results using AI based on current persona mode
 
@@ -2111,26 +2538,117 @@ def analyze_search_results(search_data: Dict[str, Any], persona: Dict[str, str],
 
         analysis_prompt += "Provide insights, opportunities, risks, and actionable recommendations based on the search results."
 
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {
-                    "role": "system",
-                    "content": analysis_prompt
-                },
-                {
-                    "role": "user",
-                    "content": f"Analyze these search results:\n\n{results_text}"
+        # Include LangSmith metadata if session_id is available
+        if langsmith_client and session_id:
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": analysis_prompt
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Analyze these search results:\n\n{results_text}"
+                    }
+                ],
+                max_tokens=800,
+                temperature=0.7,
+                langsmith_extra={
+                    "project_name": LANGSMITH_PROJECT,
+                    "metadata": {"session_id": session_id}
                 }
-            ],
-            max_tokens=800,
-            temperature=0.7
-        )
+            )
+        else:
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": analysis_prompt
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Analyze these search results:\n\n{results_text}"
+                    }
+                ],
+                max_tokens=800,
+                temperature=0.7
+            )
 
         return response.choices[0].message.content
 
     except Exception as e:
         return f"Analysis failed: {str(e)}"
+
+
+def generate_search_query(user_question: str, persona: str) -> str:
+    """
+    Generate intelligent search queries based on user question and persona mode
+
+    Args:
+        user_question (str): User's original question
+        persona (str): Current persona mode (investor/founder)
+
+    Returns:
+        str: Optimized search query for Brave Search API
+    """
+    try:
+        # Persona-specific search query templates
+        investor_keywords = {
+            "market": "startup market trends valuation 2025",
+            "competition": "startup competitive landscape industry analysis",
+            "funding": "venture capital funding trends startup investment 2025",
+            "exit": "startup exit strategies IPO acquisition trends",
+            "valuation": "startup valuation metrics Series A B C funding",
+            "growth": "startup growth metrics scaling strategies",
+            "roi": "startup ROI investment returns venture capital",
+            "due diligence": "startup due diligence checklist investment"
+        }
+
+        founder_keywords = {
+            "market": "startup market validation product-market fit",
+            "competition": "startup competitor analysis differentiation",
+            "funding": "startup fundraising tips pitch deck Series A",
+            "growth": "startup growth hacking scaling strategies",
+            "team": "startup team building hiring strategies",
+            "product": "startup product development MVP strategies",
+            "customer": "startup customer acquisition retention strategies",
+            "pivot": "startup pivot strategies when to pivot"
+        }
+
+        # Select keyword set based on persona
+        keywords = investor_keywords if persona == "investor" else founder_keywords
+
+        # Extract key topics from user question
+        question_lower = user_question.lower()
+
+        # Find matching keywords and build search query
+        search_terms = []
+
+        for topic, search_template in keywords.items():
+            if topic in question_lower:
+                search_terms.append(search_template)
+                break  # Use first match to avoid overly complex queries
+
+        # Add year context for recent information
+        current_year = "2025"
+        if current_year not in user_question:
+            search_terms.append(current_year)
+
+        # If no specific keywords found, use general startup search
+        if not search_terms:
+            if persona == "investor":
+                search_terms = ["startup investment trends 2025", "venture capital market"]
+            else:
+                search_terms = ["startup trends 2025", "founder advice entrepreneurship"]
+
+        # Combine and return the search query
+        return " ".join(search_terms[:2])  # Limit to 2 main search terms
+
+    except Exception as e:
+        print(f"Error generating search query: {str(e)}")
+        return f"startup {persona} trends 2025"
 
 
 # =============================
@@ -2508,17 +3026,25 @@ def process_with_thread_context(
     # Make API call with thread metadata
     try:
         if langsmith_client:
-            # Use traceable context for LangSmith
-            with ls.get_current_run_tree() as run_tree:
-                if run_tree:
-                    run_tree.extra = langsmith_extra
-
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=messages,
-            max_tokens=800,
-            temperature=0.7
-        )
+            # Use LangSmith thread pattern from documentation
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=messages,
+                max_tokens=800,
+                temperature=0.7,
+                langsmith_extra={
+                    "project_name": LANGSMITH_PROJECT,
+                    "metadata": {"session_id": session_id}
+                }
+            )
+        else:
+            # Standard OpenAI call without LangSmith
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=messages,
+                max_tokens=800,
+                temperature=0.7
+            )
 
         return response.choices[0].message.content
     except Exception as e:
@@ -2613,52 +3139,82 @@ async def start():
         "**Ready to start?** Choose your mode and dive into comprehensive startup analysis!"
     )
 
-    # Create settings panel with About section and quick actions
-    settings = await cl.ChatSettings(
-        [
-            cl.input_widget.TextInput(
-                id="about",
-                label="📚 About NAVADA",
-                initial=about_content,
-                description="Learn about NAVADA's capabilities and features",
-            ),
-            cl.input_widget.Select(
-                id="quick_actions",
-                label="⚡ Quick Actions",
-                values=["investor mode", "founder mode", "questions", "growth trajectory", "funding efficiency", "risk assessment", "market opportunity", "team performance", "stage progression", "assess idea", "portfolio"],
-                initial_index=0,
-                description="Select a command to execute quickly"
-            ),
-        ]
-    ).send()
+    # Store TTS setting in user session (default off)
+    cl.user_session.set("tts_enabled", False)
 
     # -------------------------
     # SEND BRIEF WELCOME MESSAGE
     # -------------------------
-    # Send agent name only - no intro text per user request
-    welcome = "**NAVADA**"
+    # Send clear welcome message with instructions
+    welcome = """**🚀 NAVADA - Startup Viability Agent**
+
+**Quick Start:**
+• Type **'investor mode'** or **'founder mode'** to begin
+• Try **'voice on'** to enable text-to-speech
+• Ask **'help'** for available commands
+
+**Popular Commands:**
+• **'growth trajectory'** - Analyze startup growth patterns
+• **'risk assessment'** - Comprehensive risk analysis
+• **'benchmark'** - Compare against successful startups
+• **'search [query]'** - Get real-time market intelligence
+
+Ready to analyze your startup? Choose your mode to start!"""
 
     # Send the welcome message asynchronously to the UI
     await cl.Message(content=welcome).send()
 
-
-@cl.on_settings_update
-async def settings_update(settings):
+    # -------------------------
+    # ADD ELEVENLABS CONVAI WIDGET
+    # -------------------------
+    # Add ElevenLabs voice agent widget for voice interactions
+    elevenlabs_widget = """
+    <elevenlabs-convai agent-id="agent_6501k5q5hn4zf9eteg70jwra0ekp"></elevenlabs-convai>
+    <script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
     """
-    Handle settings panel updates.
 
-    This function is called when users interact with the settings panel
-    (burger menu). If they select a quick action, execute it.
+    # Send the ElevenLabs widget information
+    await cl.Message(
+        content="🎙️ **Voice Agent Available** - ElevenLabs ConvAI widget configured with agent ID: `agent_6501k5q5hn4zf9eteg70jwra0ekp`"
+    ).send()
 
-    Args:
-        settings: Dictionary containing updated settings values
-    """
-    # Check if user selected a quick action
-    if settings.get("quick_actions"):
-        action = settings["quick_actions"]
-        # Send the action as if the user typed it
-        await cl.Message(content=f"Executing: {action}").send()
-        # Note: The actual command will be processed by the @cl.on_message handler
+    # Try to inject the widget via Chainlit's HTML element
+    try:
+        await cl.Html(content=elevenlabs_widget, display="page").send()
+    except Exception as e:
+        print(f"⚠️ Could not inject ElevenLabs widget: {e}")
+        # Alternative: provide instructions to user
+        await cl.Message(
+            content="**Manual Setup:** To enable voice chat, add this HTML to your page:\n```html\n" + elevenlabs_widget + "\n```"
+        ).send()
+
+
+async def generate_speech(text: str) -> cl.Audio:
+    """Generate speech from text using OpenAI TTS."""
+    try:
+        # Generate speech using OpenAI TTS
+        response = base_client.audio.speech.create(
+            model="tts-1",
+            voice="alloy",
+            input=text[:4000]  # Limit text length
+        )
+
+        # Save audio to bytes
+        audio_bytes = response.content
+
+        # Create Chainlit audio element
+        audio_element = cl.Audio(
+            content=audio_bytes,
+            mime="audio/mpeg",
+            display="inline"
+        )
+
+        return audio_element
+    except Exception as e:
+        print(f"⚠️ TTS Error: {e}")
+        return None
+
+# Voice commands are handled in the main message handler
 
 
 # =============================
@@ -2845,6 +3401,12 @@ async def handle_csv_upload():
 # =============================
 
 @cl.on_message
+@traceable(
+    name="NAVADA Message Handler",
+    run_type="chain",
+    tags=["navada", "message-handler", "conversation-entry"],
+    metadata={"handler_type": "chainlit_message", "app_version": "2.0.0"}
+)
 async def main(message: cl.Message):
     """
     Process every user message and route to appropriate handler.
@@ -2897,6 +3459,68 @@ async def main(message: cl.Message):
     # -------------------------
     # Convert to lowercase and strip whitespace for consistent matching
     user_input = message.content.strip().lower()
+
+    # =============================
+    # ROUTE 0: VOICE COMMANDS
+    # =============================
+    if user_input in ["voice on", "voice enable", "tts on", "speech on", "audio on"]:
+        cl.user_session.set("tts_enabled", True)
+        await cl.Message(content="🔊 **Voice enabled!** AI responses will now include audio.").send()
+        return
+
+    if user_input in ["voice off", "voice disable", "tts off", "speech off", "audio off"]:
+        cl.user_session.set("tts_enabled", False)
+        await cl.Message(content="🔇 **Voice disabled.** AI responses will be text only.").send()
+        return
+
+    # =============================
+    # ROUTE 0.5: MATHEMATICAL ANALYSIS MODE
+    # =============================
+    if "math mode" in user_input or "analysis mode" in user_input:
+        await thinking_msg.remove()
+
+        # Create math-enabled analysis environment
+        math_context = {
+            'df': df,
+            'np': np,
+            'stats': stats,
+            'current_startup': cl.user_session.get('selected_startup')
+        }
+
+        await cl.Message(
+            content="## 🧮 Mathematical Analysis Mode\n\n"
+                    "You can now perform complex calculations:\n\n"
+                    "**Examples:**\n"
+                    "• `calculate IRR for 5x return in 7 years`\n"
+                    "• `project revenue with 20% monthly growth`\n"
+                    "• `simulate 1000 scenarios for exit`\n"
+                    "• `optimize burn rate for 18 month runway`\n\n"
+                    "Type your calculation or 'exit math mode' to return."
+        ).send()
+
+        cl.user_session.set("math_mode", True)
+        return
+
+    # Check if user is in math mode
+    if cl.user_session.get("math_mode", False):
+        await thinking_msg.remove()
+
+        if user_input in ["exit math mode", "exit", "return", "back"]:
+            cl.user_session.set("math_mode", False)
+            await cl.Message(content="🔄 **Exited math mode.** Back to regular analysis.").send()
+            return
+
+        # Process math command
+        math_context = {
+            'df': df,
+            'np': np,
+            'stats': stats,
+            'current_startup': cl.user_session.get('selected_startup')
+        }
+
+        result = await process_math_command(user_input, math_context)
+        await cl.Message(content=result).send()
+        return
 
     # =============================
     # ROUTE 1: FAILURE TIMELINE CHART
@@ -3387,29 +4011,62 @@ async def main(message: cl.Message):
         df_str = df.to_string(index=False)
         available_columns = list(df.columns)
 
-        intent_response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a data visualization assistant. Analyze the user's request and determine:\n"
-                        "1. What type of chart they want (bar, scatter, line, pie, or 'analysis' for text response)\n"
-                        "2. Which columns to use (x-axis and y-axis)\n"
-                        "3. A descriptive title\n\n"
-                        f"Available columns: {', '.join(available_columns)}\n\n"
-                        "Respond ONLY in this JSON format:\n"
-                        '{"chart_type": "bar/scatter/line/pie/analysis", "x_col": "column_name", "y_col": "column_name", "title": "Chart Title"}\n\n'
-                        "If the request doesn't make sense for a chart, use chart_type: 'analysis'."
-                    )
-                },
-                {
-                    "role": "user",
-                    "content": f"Dataset columns: {available_columns}\n\nUser request: {message.content}"
+        # Get session ID for LangSmith tracking
+        session_id = cl.user_session.get("session_id", get_session_id())
+
+        # Include LangSmith metadata if available
+        if langsmith_client and session_id:
+            intent_response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a data visualization assistant. Analyze the user's request and determine:\n"
+                            "1. What type of chart they want (bar, scatter, line, pie, or 'analysis' for text response)\n"
+                            "2. Which columns to use (x-axis and y-axis)\n"
+                            "3. A descriptive title\n\n"
+                            f"Available columns: {', '.join(available_columns)}\n\n"
+                            "Respond ONLY in this JSON format:\n"
+                            '{"chart_type": "bar/scatter/line/pie/analysis", "x_col": "column_name", "y_col": "column_name", "title": "Chart Title"}\n\n'
+                            "If the request doesn't make sense for a chart, use chart_type: 'analysis'."
+                        )
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Dataset columns: {available_columns}\n\nUser request: {message.content}"
+                    }
+                ],
+                max_tokens=150,
+                langsmith_extra={
+                    "project_name": LANGSMITH_PROJECT,
+                    "metadata": {"session_id": session_id}
                 }
-            ],
-            max_tokens=150
-        )
+            )
+        else:
+            intent_response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a data visualization assistant. Analyze the user's request and determine:\n"
+                            "1. What type of chart they want (bar, scatter, line, pie, or 'analysis' for text response)\n"
+                            "2. Which columns to use (x-axis and y-axis)\n"
+                            "3. A descriptive title\n\n"
+                            f"Available columns: {', '.join(available_columns)}\n\n"
+                            "Respond ONLY in this JSON format:\n"
+                            '{"chart_type": "bar/scatter/line/pie/analysis", "x_col": "column_name", "y_col": "column_name", "title": "Chart Title"}\n\n'
+                            "If the request doesn't make sense for a chart, use chart_type: 'analysis'."
+                        )
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Dataset columns: {available_columns}\n\nUser request: {message.content}"
+                    }
+                ],
+                max_tokens=150
+            )
 
         try:
             # Parse AI response to get chart parameters
@@ -3763,8 +4420,11 @@ async def main(message: cl.Message):
         # Get current persona for analysis
         persona = get_current_persona()
 
+        # Get session ID for LangSmith tracking
+        session_id = cl.user_session.get("session_id", get_session_id())
+
         # Analyze results with persona context
-        analysis = analyze_search_results(search_results, persona, "startup and investment context")
+        analysis = analyze_search_results(search_results, persona, "startup and investment context", session_id)
 
         # Format and send results
         content = f"## 🔍 Search Results: {query}\n\n"
@@ -3844,7 +4504,7 @@ async def main(message: cl.Message):
         cl.user_session.set("persona", "investor")
         persona = get_current_persona()
         await cl.Message(
-            content=f"{persona['color']} {persona['style']}\n\n"
+            content=f"{persona['style']}\n\n"
                    "I'm now analyzing from a **venture capitalist perspective**. "
                    "I'll focus on ROI, market size, competitive analysis, and exit strategies.\n\n"
                    "**What would you like to analyze today?**\n\n"
@@ -3879,7 +4539,7 @@ async def main(message: cl.Message):
         cl.user_session.set("persona", "founder")
         persona = get_current_persona()
         await cl.Message(
-            content=f"{persona['color']} {persona['style']}\n\n"
+            content=f"{persona['style']}\n\n"
                    "I'm now analyzing from an **experienced founder perspective**. "
                    "I'll focus on practical execution, team building, product development, and tactical advice.\n\n"
                    "**What challenges can I help you tackle today?**\n\n"
@@ -4021,7 +4681,7 @@ async def main(message: cl.Message):
         await analysis_msg.remove()
 
         # Send AI analysis with persona indicator
-        analysis_response = f"{persona['color']} **Website Analysis**\n\n{analysis}"
+        analysis_response = f"**Website Analysis**\n\n{analysis}"
         await cl.Message(content=analysis_response).send()
 
         return
@@ -4094,32 +4754,59 @@ async def main(message: cl.Message):
             "suggest they try one of these commands."
         )
 
-        messages = [
-            {
-                "role": "system",
-                "content": enhanced_system_prompt
-            }
+        # Use LangSmith thread management for conversation continuity
+        current_persona_name = cl.user_session.get("persona", "founder")
+        current_persona = PERSONAS[current_persona_name]
+
+        # Check if we should use conversation history (after first message in session)
+        session_metadata = get_session_metadata(session_id)
+        use_history = session_metadata["conversation_count"] > 0
+
+        # Auto-search enhancement for relevant queries
+        search_results = None
+        search_context = ""
+
+        # Determine if this query would benefit from real-time search
+        search_triggers = [
+            "market", "competition", "trends", "latest", "recent", "current", "2024", "2025",
+            "startup", "funding", "investment", "industry", "valuation", "growth", "exit"
         ]
 
-        # Add memory context if available
-        if memory_context:
-            messages.append({
-                "role": "system",
-                "content": f"Conversation context:\n{memory_context}"
-            })
+        should_search = any(trigger in message.content.lower() for trigger in search_triggers)
 
-        messages.append({
-            "role": "user",
-            "content": f"Dataset:\n{df_str}\n\nUser question: {message.content}"
-        })
+        if should_search and search_api_key:
+            # Generate persona-specific search query
+            search_query = generate_search_query(message.content, current_persona_name)
 
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=messages,
-            max_tokens=500
+            if search_query:
+                # Show search indicator
+                search_msg = await cl.Message(content="🔍 Searching for latest market intelligence...").send()
+
+                # Perform search
+                search_results = search_internet(search_query, count=3)
+
+                # Remove search indicator
+                await search_msg.remove()
+
+                if search_results["success"]:
+                    search_context = f"\n\nRECENT MARKET INTELLIGENCE:\n"
+                    for i, result in enumerate(search_results["results"], 1):
+                        search_context += f"\n{i}. **{result['title']}**\n"
+                        search_context += f"   {result['description']}\n"
+                        search_context += f"   Source: {result['url']}\n"
+
+        # Enhance user question with dataset and search context
+        enhanced_question = f"Dataset:\n{df_str}\n\nUser question: {message.content}"
+        if search_context:
+            enhanced_question += search_context
+
+        # Use the LangSmith chat pipeline for thread-aware responses
+        ai_response = navada_chat_pipeline(
+            question=enhanced_question,
+            session_id=session_id,
+            persona=current_persona_name,
+            get_chat_history=use_history
         )
-
-        ai_response = response.choices[0].message.content
 
     # -------------------------
     # SEND AI RESPONSE WITH PERSONA INDICATOR
@@ -4128,7 +4815,11 @@ async def main(message: cl.Message):
     add_to_memory(session_id, "assistant", ai_response)
 
     # Add persona indicator to response
-    response_with_persona = f"{persona['color']} {ai_response}"
+    response_with_persona = ai_response
+
+    # Add search intelligence indicator if search was used
+    if search_context and search_results and search_results["success"]:
+        response_with_persona += f"\n\n---\n\n*🔍 Enhanced with real-time market intelligence from {len(search_results['results'])} sources*"
 
     # Generate and append auto-insights for analysis-type responses
     if any(keyword in user_input for keyword in ["analyze", "analysis", "compare", "evaluate"]):
@@ -4139,7 +4830,50 @@ async def main(message: cl.Message):
     # Remove thinking indicator before sending final response
     await thinking_msg.remove()
 
-    await cl.Message(content=response_with_persona).send()
+    # Send the text response
+    message = await cl.Message(content=response_with_persona).send()
+
+    # -------------------------
+    # AUTO TEXT-TO-SPEECH
+    # -------------------------
+    # Check if TTS is enabled in user settings
+    tts_enabled = cl.user_session.get("tts_enabled", False)
+    if tts_enabled and response_with_persona:
+        try:
+            # Clean response text for TTS (remove markdown, emojis, etc.)
+            clean_text = clean_text_for_tts(response_with_persona)
+            if clean_text.strip():
+                # Generate and send audio
+                audio_element = await generate_speech(clean_text)
+                if audio_element:
+                    await cl.Message(
+                        content="🔊 Audio version:",
+                        elements=[audio_element]
+                    ).send()
+        except Exception as e:
+            print(f"⚠️ Auto-TTS failed: {e}")
+
+def clean_text_for_tts(text: str) -> str:
+    """Clean text for text-to-speech by removing markdown and special characters."""
+    import re
+
+    # Remove markdown formatting
+    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)  # Bold
+    text = re.sub(r'\*(.*?)\*', r'\1', text)      # Italic
+    text = re.sub(r'`(.*?)`', r'\1', text)        # Code
+    text = re.sub(r'#+ ', '', text)               # Headers
+    text = re.sub(r'\[.*?\]\(.*?\)', '', text)    # Links
+    text = re.sub(r'---+', '', text)              # Horizontal rules
+
+    # Remove emojis and special characters
+    text = re.sub(r'[🔍🚀💼📊🔹⚡📈🎯💡🔧📚⏰📝🔗✅⚠️🎙️🔊📢]', '', text)
+
+    # Clean up multiple spaces and newlines
+    text = re.sub(r'\n+', '. ', text)
+    text = re.sub(r'\s+', ' ', text)
+
+    # Limit length for TTS
+    return text.strip()[:1000]
 
 # =============================
 # LANGSMITH PLATFORM OPTIMIZATION
@@ -4147,9 +4881,31 @@ async def main(message: cl.Message):
 
 @traceable
 def initialize_knowledge_base():
-    """Initialize vector store with startup knowledge for LangSmith hosting."""
+    """Initialize vector store with external LangChain database or fallback to local."""
     global vector_store
 
+    if not vector_store:
+        # Try to connect to external LangChain database first
+        if langchain_database_id and CHROMA_AVAILABLE:
+            try:
+                # Connect to external LangChain database using the provided ID
+                vector_store = Chroma(
+                    embedding_function=embeddings,
+                    persist_directory=f"./langchain_db_{langchain_database_id}"
+                )
+                print(f"✅ Connected to LangChain database: {langchain_database_id[:8]}...")
+            except Exception as e:
+                print(f"⚠️ Failed to connect to LangChain database: {e}")
+                # Fallback to local knowledge base
+                vector_store = _create_local_knowledge_base()
+        else:
+            # Fallback to local knowledge base
+            vector_store = _create_local_knowledge_base()
+
+    return vector_store
+
+def _create_local_knowledge_base():
+    """Create local knowledge base as fallback."""
     # Startup knowledge optimized for LangSmith platform
     startup_knowledge = [
         "Successful startups show product-market fit within 18-24 months",
@@ -4159,19 +4915,17 @@ def initialize_knowledge_base():
         "Hardware startups need more capital and longer dev cycles",
         "Fintech faces regulatory challenges but high market opportunity",
         "AI/ML startups need strong technical teams and data advantages",
-        "E-commerce should focus on unit economics and CAC"
+        "E-commerce should focus on unit economics and CAC",
+        "Database ID: " + (langchain_database_id or "local-fallback")
     ]
 
     documents = [Document(page_content=text) for text in startup_knowledge]
 
-    if not vector_store:
-        vector_store = Chroma.from_documents(
-            documents=documents,
-            embedding=embeddings,
-            persist_directory="./chroma_db"
-        )
-
-    return vector_store
+    return Chroma.from_documents(
+        documents=documents,
+        embedding=embeddings,
+        persist_directory="./chroma_db"
+    )
 
 @traceable
 def enhanced_rag_response(user_query: str, context: str) -> str:

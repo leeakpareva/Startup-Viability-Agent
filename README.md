@@ -1,291 +1,216 @@
 # 🚀 NAVADA - Startup Viability Agent
 
-**AI-Powered Startup Analysis Platform with Interactive Dashboards & Web Scraping**
+**AI-Powered Startup Analysis Platform with Voice Support & Real-Time Intelligence**
 
-NAVADA (New Analysis & Viability Assessment for Data-driven Analysis) is a comprehensive AI-powered chatbot that helps investors, founders, and analysts make data-driven decisions about startup viability and risk assessment.
+NAVADA is an advanced AI-powered conversational agent that helps investors and founders make data-driven decisions about startup viability using real-time market intelligence, voice interactions, and comprehensive analytics.
 
-![NAVADA Interface](https://img.shields.io/badge/Framework-Chainlit-blue) ![Python](https://img.shields.io/badge/Python-3.8+-green) ![GPT-4](https://img.shields.io/badge/AI-GPT--4-orange) ![License](https://img.shields.io/badge/License-MIT-yellow)
+![Python](https://img.shields.io/badge/Python-3.8+-green) ![Chainlit](https://img.shields.io/badge/Framework-Chainlit-blue) ![OpenAI](https://img.shields.io/badge/AI-GPT--4-orange) ![LangSmith](https://img.shields.io/badge/Tracking-LangSmith-purple)
 
-## 🎯 **Key Features**
+## 🎯 Key Features
 
-### 📊 **Interactive Dashboards**
-- **Plotly-powered charts** with zoom, hover, and click functionality
-- **Multi-panel sector dashboards** for comprehensive analysis
-- **Interactive timelines** showing failure progression
-- **Real-time data exploration** with export capabilities
+### 🎭 **Dual AI Personas**
+- **💼 Investor Mode**: VC perspective focused on ROI, market analysis, and investment opportunities
+- **🚀 Founder Mode**: Entrepreneur perspective focused on execution, operations, and tactical recommendations
+- **Smart Memory**: Conversation context preserved across sessions with LangSmith thread tracking
 
-### 🎭 **AI Personas & Memory**
-- **💼 Investor Mode**: VC perspective focused on ROI and exit strategies
-- **🚀 Founder Mode**: Entrepreneur perspective focused on execution
-- **Session memory** remembers conversation history for context-aware responses
-- **Persona-specific guidance** and recommendations
+### 🔍 **Real-Time Market Intelligence**
+- **Internet Search Integration**: Automatically searches for up-to-date market data and trends
+- **Brave Search API**: Access to current startup news, funding rounds, and market intelligence
+- **Context-Aware Analysis**: Search results tailored to your current persona and conversation
 
-### 🔍 **Web Scraping & Analysis**
-- **Smart web scraping** with CSS selector support
-- **AI-powered website analysis** tailored to your persona
-- **Competitor research** and market intelligence
-- **Safety measures**: URL validation, content limits, timeout protection
+### 🎤 **Voice Interaction**
+- **Text-to-Speech**: AI responses with natural voice output using OpenAI TTS
+- **Voice Commands**: Simple "voice on/off" toggle for hands-free interaction
+- **ElevenLabs Integration**: Advanced conversational AI widget support
 
-### 📈 **Advanced Analytics**
-- **8-factor viability scoring** with comprehensive metrics
-- **Founder idea benchmarking** against dataset percentiles
-- **Portfolio heatmap analysis** for multiple startups
-- **Auto-generated insights** with risk detection and recommendations
+### 🧮 **Mathematical Analysis Mode**
+- **IRR/NPV Calculations**: Internal Rate of Return and Net Present Value for investment analysis
+- **Revenue Projections**: Model growth scenarios with compound interest calculations
+- **Monte Carlo Simulations**: Run 1,000+ scenarios for exit value predictions
+- **Burn Rate Optimization**: Calculate optimal spending for desired runway
+- **Financial Modeling**: Comprehensive startup metrics and break-even analysis
 
-### 📄 **Professional Reports**
-- **PDF investment reports** with executive summaries
-- **Comprehensive analysis** including charts and recommendations
-- **Single startup** or **full portfolio** report generation
-- **Professional formatting** ready for investor presentations
+### 📊 **Advanced Analytics & Visualization**
+- **24 Startup Dataset**: Comprehensive database with enhanced metrics (Business Model, Moat, MRR, Growth Rate)
+- **6 Chart Types**: Growth trajectory, team performance, market opportunity, funding efficiency, stage progression, risk assessment
+- **Interactive Dashboards**: Real-time data exploration with Plotly visualizations
+- **PDF Reports**: Professional investment reports with executive summaries
 
-## 🎮 **Quick Start**
+### 🔧 **Enterprise Features**
+- **LangSmith Observability**: Complete conversation tracking and analytics
+- **Thread Management**: Persistent conversation history and context
+- **LangChain Database**: Vector storage for enhanced RAG capabilities
+- **Deployment Ready**: LangGraph compatibility for production scaling
+
+## 🚀 Quick Start
 
 ### Prerequisites
 - Python 3.8+ (recommended 3.11+)
 - OpenAI API key
-- 2GB+ RAM for optimal performance
+- Optional: Brave Search API key, LangSmith API key
 
 ### Installation
 
-1. **Clone the repository**
 ```bash
-git clone https://github.com/leeakpareva/Startup-Viability-Agent.git
-cd Startup-Viability-Agent
-```
+# Clone repository
+git clone <repository-url>
+cd navada
 
-2. **Install dependencies**
-```bash
+# Install dependencies
 pip install -r requirements.txt
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your API keys
 ```
 
-3. **Set up environment variables**
-```bash
-# Create .env file and add your OpenAI API key
-OPENAI_API_KEY=your_openai_api_key_here
-```
+### Environment Setup
 
-4. **Run NAVADA**
-```bash
-chainlit run app.py
-```
-
-5. **Open in browser**
-- Navigate to `http://localhost:8000`
-- Start analyzing startups! 🚀
-
-## 📋 **Command Reference**
-
-### 🎭 **Personas & Modes**
-```bash
-investor mode          # Switch to VC perspective
-founder mode          # Switch to entrepreneur perspective
-persona               # Check current mode
-```
-
-### 📊 **Charts & Visualization**
-```bash
-timeline                    # Static failure timeline
-funding vs burn             # Static scatter plot
-interactive dashboard       # Interactive scatter plot
-interactive timeline        # Interactive timeline
-sector dashboard           # Multi-chart dashboard
-```
-
-### 🎯 **Analysis Tools**
-```bash
-assess idea                 # 8-factor viability scoring
-benchmark                   # Compare your idea to dataset
-portfolio                   # Multi-startup heatmap analysis
-insights                    # Auto-generated recommendations
-```
-
-### 🔍 **Web Scraping**
-```bash
-scrape <url>                # Scrape website paragraphs
-scrape <url> <selector>     # Scrape with custom CSS selector
-
-# Examples:
-scrape https://techcrunch.com h1,h2    # Headlines
-scrape https://startup.com .content    # By CSS class
-scrape https://company.com #about      # By element ID
-```
-
-### 📄 **Reports & Export**
-```bash
-generate report             # Full portfolio PDF report
-generate report for [name]  # Single startup PDF report
-```
-
-### 📁 **Data Management**
-```bash
-upload csv                 # Upload custom dataset
-```
-
-## 🎪 **Usage Examples**
-
-### 💼 **Investor Workflow**
-```bash
-You: investor mode
-NAVADA: 💼 **INVESTOR MODE** - VC perspective activated
-
-You: portfolio
-NAVADA: [Generates investment recommendation heatmap]
-
-You: scrape https://competitor-startup.com
-NAVADA: 🔵 **Website Analysis**
-• Market opportunity: $2.5B TAM mentioned
-• Revenue model: SaaS with enterprise focus
-• Risk factors: Heavy tech dependency
-```
-
-### 🚀 **Founder Workflow**
-```bash
-You: founder mode
-NAVADA: 🚀 **FOUNDER MODE** - Entrepreneur perspective activated
-
-You: assess idea
-NAVADA: [Walks through 8-factor viability assessment]
-
-You: benchmark
-NAVADA: [Compares your metrics against successful startups]
-
-You: scrape https://successful-competitor.com
-NAVADA: 🟢 **Website Analysis**
-• Actionable insights for your execution strategy
-• Tactical recommendations based on their approach
-```
-
-## 🏗️ **Project Structure**
-
-```
-Startup-Viability-Agent/
-├── app.py                      # Main application file
-├── requirements.txt            # Python dependencies
-├── .env                       # Environment variables (create this)
-├── .chainlit/
-│   └── config.toml            # Chainlit configuration
-├── public/
-│   └── how-to-use.html        # Comprehensive user guide
-├── test_*.py                  # Test scripts
-└── README.md                  # This file
-```
-
-## 🔧 **Configuration**
-
-### Environment Variables
+Create `.env` file with:
 ```bash
 # Required
 OPENAI_API_KEY=your_openai_api_key_here
 
-# Optional
-CHAINLIT_PORT=8000
-CHAINLIT_HOST=localhost
+# Optional - Enhanced Features
+SEARCH_API_KEY=your_brave_search_api_key    # For real-time market intelligence
+LANGSMITH_API_KEY=your_langsmith_api_key    # For conversation tracking
+TTS_PROMPT_ID=your_tts_prompt_id           # For voice output
+LANGCHAIN_DATABASE_ID=your_database_id     # For RAG capabilities
 ```
 
-### Chainlit Settings
-- **Session timeout**: 1 hour
-- **User session**: 15 days
-- **File uploads**: Enabled (CSV, 500MB max)
-- **Interactive mode**: Full CoT display
-
-## 🔒 **Security Features**
-
-### Web Scraping Safety
-- **URL validation**: HTTP/HTTPS only
-- **Content limits**: 5MB maximum
-- **Request timeouts**: 15 seconds
-- **Blocked domains**: localhost, file://, etc.
-- **Content filtering**: Removes scripts, styles
-
-### Data Protection
-- **No sensitive data logging**
-- **Environment variable encryption**
-- **Session-based memory** (not persistent)
-- **Secure API communication**
-
-## 🧪 **Testing**
-
-Run the comprehensive test suite:
+### Run Application
 
 ```bash
-# Test core features
-python test_new_features.py
-
-# Test advanced features
-python test_advanced_features.py
-
-# Test web scraping
-python test_web_scraping.py
-
-# Test portfolio functionality
-python test_portfolio_fix.py
+chainlit run app.py --host 0.0.0.0 --port 8000
 ```
 
-## 📊 **Built-in Dataset**
+Open browser to `http://localhost:8000`
 
-NAVADA includes a curated dataset of 12 startups across multiple sectors:
+## 🎮 How to Use
 
-- **Sectors**: Tech, FinTech, HealthTech, EdTech, Transport, Energy, etc.
-- **Metrics**: Funding, burn rate, founder experience, market size
-- **Outcomes**: 50% success rate for realistic analysis
-- **Geography**: US, UK, Germany, France
+### 🎭 **Switch Personas**
+```
+investor mode    # Switch to VC perspective
+founder mode     # Switch to entrepreneur perspective
+```
 
-## 🤝 **Contributing**
+### 🔍 **Real-Time Search**
+```
+search AI startups 2024
+latest trends in fintech
+current venture capital news
+what's happening with [topic]
+```
 
-We welcome contributions! Here's how to get started:
+### 🎤 **Voice Control**
+```
+voice on         # Enable text-to-speech
+voice off        # Disable text-to-speech
+```
 
-1. **Fork the repository**
-2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
-3. **Make your changes** and add tests
-4. **Commit**: `git commit -m 'Add amazing feature'`
-5. **Push**: `git push origin feature/amazing-feature`
-6. **Create a Pull Request**
+### 🧮 **Mathematical Analysis**
+```
+math mode        # Enter advanced calculation mode
+calculate IRR for 5x return in 7 years
+project revenue with 20% monthly growth
+simulate 1000 scenarios for exit
+optimize burn rate for 18 month runway
+exit math mode   # Return to regular mode
+```
 
-## 🐛 **Troubleshooting**
+### 📊 **Analytics & Charts**
+```
+show funding vs burn chart
+display growth trajectory
+generate portfolio analysis
+create risk assessment
+```
 
-### Common Issues
+### 📄 **Reports**
+```
+generate report
+portfolio analysis
+```
 
-**Charts not generating?**
+## 🏗️ Tech Stack
+
+### **Core Framework**
+- **Chainlit 2.8.0**: Conversational AI interface
+- **OpenAI GPT-4o-mini**: Natural language processing
+- **Python 3.11+**: Backend runtime
+
+### **AI & Analytics**
+- **LangChain**: RAG and vector storage
+- **LangSmith**: Conversation tracking and observability
+- **LangGraph**: Production deployment support
+- **Pandas/NumPy**: Data processing and analysis
+
+### **Visualization**
+- **Plotly**: Interactive charts and dashboards
+- **Matplotlib/Seaborn**: Statistical visualizations
+- **ReportLab**: PDF report generation
+
+### **Real-Time Intelligence**
+- **Brave Search API**: Live market data
+- **BeautifulSoup**: Web scraping capabilities
+- **OpenAI TTS**: Voice output
+- **ElevenLabs**: Advanced voice AI
+
+### **Data & Storage**
+- **Chroma**: Vector database for RAG
+- **Environment Variables**: Secure configuration
+- **Session Management**: Persistent conversations
+
+## 📊 Dataset
+
+Enhanced startup dataset with 24 companies featuring:
+- **Core Metrics**: Funding, burn rate, founder experience, market size
+- **Business Intelligence**: Business model, competitive moat, MRR tracking
+- **Growth Analytics**: Growth rate, team size, years since founding
+- **Risk Assessment**: Competition analysis, stage progression
+
+## 🔒 Security Features
+
+- **API Key Protection**: Environment variable encryption
+- **Secure Web Scraping**: URL validation and content filtering
+- **Session Isolation**: User data separation
+- **Rate Limiting**: API usage protection
+
+## 🚀 Deployment
+
+### LangGraph Deployment
 ```bash
-# Use exact keywords
-timeline                    # ✅ Correct
-show me timeline            # ❌ Won't work
+# Deploy with LangGraph wrapper
+langgraph deploy
 ```
 
-**Web scraping fails?**
+### Docker Deployment
 ```bash
-# Check URL in browser first
-# Try different CSS selectors: h1, div, span
-# Some sites block automated requests
+# Build container
+docker build -t navada .
+
+# Run container
+docker run -p 8000:8000 navada
 ```
 
-**OpenAI API errors?**
-```bash
-# Check .env file exists and has valid API key
-# Verify API key has sufficient credits
-# Check internet connection
-```
+## 🤝 Contributing
 
-## 📄 **License**
+1. Fork the repository
+2. Create feature branch: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push to branch: `git push origin feature/amazing-feature`
+5. Open Pull Request
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## 📞 Support
 
-## 🙏 **Acknowledgments**
+- **Issues**: GitHub Issues
+- **Documentation**: Built-in help system
+- **Community**: GitHub Discussions
 
-- **Chainlit** - Amazing conversational AI framework
-- **OpenAI** - GPT-4 integration for intelligent analysis
-- **Plotly** - Interactive visualization capabilities
-- **Community** - Feedback and feature suggestions
+## 📄 License
 
-## 📞 **Support**
-
-- **Issues**: [GitHub Issues](https://github.com/leeakpareva/Startup-Viability-Agent/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/leeakpareva/Startup-Viability-Agent/discussions)
+MIT License - see LICENSE file for details.
 
 ---
 
-## 🌟 **Star the Repository!**
-
-If NAVADA helps with your startup analysis, please ⭐ this repository to help others discover it!
-
-**Built with ❤️ for the startup community**
+**Built for the startup ecosystem with AI, voice, and real-time intelligence** 🌟
