@@ -22,17 +22,19 @@ seaborn>=0.12.0                     # Statistical data visualization
 plotly>=5.15.0                      # Interactive charts and dashboards
 
 # =============================
-# MACHINE LEARNING & RAG
+# MACHINE LEARNING & RAG (OPTIMIZED FOR VERCEL)
 # =============================
-scikit-learn>=1.3.0                # Machine learning algorithms
-scipy>=1.10.0                      # Scientific computing (sklearn dependency)
+# Removed large ML packages to fit 250MB Vercel limit:
+# - scikit-learn (large ML library - not essential for core functionality)
+# - scipy (large scientific computing - sklearn dependency)
+# - chromadb (large vector database - not essential for basic functionality)
+# - faiss-cpu (large similarity search - not essential)
+
 langchain-openai>=0.1.0            # LangChain OpenAI integration
 langchain-core>=0.2.0              # LangChain core functionality
 langchain>=0.2.0                   # LangChain framework for RAG
 langchain-cli>=0.0.31              # LangChain CLI for deployment
 langsmith>=0.1.0                   # LangSmith tracing and monitoring
-chromadb>=0.4.0                    # Vector database for RAG storage
-faiss-cpu>=1.7.0                   # Facebook AI similarity search
 
 # =============================
 # WEB SCRAPING

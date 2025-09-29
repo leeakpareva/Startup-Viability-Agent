@@ -25,15 +25,27 @@ from openai import OpenAI  # OpenAI API client for GPT model interactions
 from dotenv import load_dotenv  # Load environment variables from .env file
 import uuid  # For generating unique thread/session IDs
 from IPython.display import display  # IPython display utilities (not actively used)
-from sklearn.model_selection import train_test_split  # Split data for ML training
-from sklearn.ensemble import RandomForestClassifier  # Random Forest model for predictions
+# Optional ML imports - handle gracefully if not available (for Vercel size limits)
+try:
+    from sklearn.model_selection import train_test_split  # Split data for ML training
+    from sklearn.ensemble import RandomForestClassifier  # Random Forest model for predictions
+    SKLEARN_AVAILABLE = True
+except ImportError:
+    SKLEARN_AVAILABLE = False
+    print("⚠️ scikit-learn not available - ML features disabled")
 
 # LangChain & LangSmith imports for hosting
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_core.documents import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.vectorstores import Chroma
-from langchain.chains import RetrievalQA
+# Optional vector store imports - handle gracefully if not available
+try:
+    from langchain.vectorstores import Chroma
+    from langchain.chains import RetrievalQA
+    CHROMA_AVAILABLE = True
+except ImportError:
+    CHROMA_AVAILABLE = False
+    print("⚠️ Chroma vector store not available - RAG features disabled")
 from langsmith import traceable, Client as LangSmithClient
 from langsmith.wrappers import wrap_openai
 import langsmith as ls
