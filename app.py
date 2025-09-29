@@ -178,6 +178,27 @@ df["Est_Failure_Year"] = FUNDING_YEAR + (df["Funding_USD_M"] / df["Burn_Rate_Mon
 # UTILITY FUNCTIONS - CHART GENERATION
 # =============================
 
+def get_mobile_optimized_figsize(default_width: float, default_height: float) -> tuple:
+    """
+    Get mobile-optimized figure size for charts.
+
+    Args:
+        default_width: Default width for desktop
+        default_height: Default height for desktop
+
+    Returns:
+        tuple: (width, height) optimized for mobile viewing
+    """
+    # For mobile, use smaller, more square dimensions
+    mobile_width = min(default_width, 8)  # Max 8 inches wide
+    mobile_height = min(default_height, 6)  # Max 6 inches tall
+
+    # Ensure aspect ratio is mobile-friendly (not too wide)
+    if mobile_width / mobile_height > 1.5:
+        mobile_height = mobile_width / 1.4
+
+    return (mobile_width, mobile_height)
+
 def fig_to_bytes(fig) -> bytes:
     """
     Convert a matplotlib figure to PNG bytes for Chainlit display.
@@ -226,8 +247,9 @@ def plot_failure_timeline(df_in: pd.DataFrame):
         - Color gradient: Coolwarm palette (red=sooner, blue=later)
         - Text labels: Exact failure year displayed on each bar
     """
-    # Create figure with specified size (9 inches wide, 5 inches tall)
-    fig, ax = plt.subplots(figsize=(9, 5))
+    # Create figure with mobile-optimized size
+    figsize = get_mobile_optimized_figsize(9, 5)
+    fig, ax = plt.subplots(figsize=figsize)
 
     # Create bar plot using seaborn for better styling
     # Coolwarm palette: cooler colors for later failure, warmer for sooner
@@ -269,7 +291,8 @@ def plot_funding_vs_burn(df_in: pd.DataFrame):
         - Labels: Startup names displayed next to each point
         - Size: Fixed at 160 for visibility
     """
-    fig, ax = plt.subplots(figsize=(9, 5))
+    figsize = get_mobile_optimized_figsize(9, 5)
+    fig, ax = plt.subplots(figsize=figsize)
 
     # Create scatter plot with multiple visual dimensions
     sns.scatterplot(
@@ -326,8 +349,9 @@ def plot_viability_gauge(score: float):
         - Score displayed in title
         - Clean appearance with removed spines
     """
-    # Create compact figure for gauge display
-    fig, ax = plt.subplots(figsize=(6, 1.2))
+    # Create compact figure for gauge display (mobile-friendly)
+    figsize = get_mobile_optimized_figsize(6, 1.2)
+    fig, ax = plt.subplots(figsize=figsize)
 
     # Create horizontal bar with color based on score threshold
     # Ternary operator chains: score >= 60 → green, else score >= 40 → yellow, else red
@@ -364,7 +388,8 @@ def plot_sector_comparison(df_in: pd.DataFrame):
     Returns:
         bytes: PNG image data
     """
-    fig, ax = plt.subplots(figsize=(10, 6))
+    figsize = get_mobile_optimized_figsize(10, 6)
+    fig, ax = plt.subplots(figsize=figsize)
 
     # Group by sector and calculate average funding
     sector_avg = df_in.groupby('Sector')['Funding_USD_M'].mean().sort_values(ascending=False)
@@ -393,7 +418,8 @@ def plot_failure_rate_by_country(df_in: pd.DataFrame):
     Returns:
         bytes: PNG image data
     """
-    fig, ax = plt.subplots(figsize=(10, 6))
+    figsize = get_mobile_optimized_figsize(10, 6)
+    fig, ax = plt.subplots(figsize=figsize)
 
     # Calculate failure rate by country
     country_stats = df_in.groupby('Country').agg({
@@ -432,7 +458,8 @@ def plot_experience_vs_success(df_in: pd.DataFrame):
     Returns:
         bytes: PNG image data
     """
-    fig, ax = plt.subplots(figsize=(10, 6))
+    figsize = get_mobile_optimized_figsize(10, 6)
+    fig, ax = plt.subplots(figsize=figsize)
 
     # Separate successful and failed startups
     successful = df_in[df_in['Failed'] == 0]
@@ -474,7 +501,8 @@ def plot_custom_chart(df_in: pd.DataFrame, chart_type: str, x_col: str, y_col: s
     Returns:
         bytes: PNG image data
     """
-    fig, ax = plt.subplots(figsize=(10, 6))
+    figsize = get_mobile_optimized_figsize(10, 6)
+    fig, ax = plt.subplots(figsize=figsize)
 
     try:
         if chart_type == 'bar':
@@ -1166,12 +1194,14 @@ def create_interactive_scatter(df_in: pd.DataFrame, title: str = "Interactive St
             xanchor="right",               # Align to right side
             x=1                            # Full width positioning
         ),
-        margin=dict(                       # Add margins for better spacing
-            t=50,                          # Top margin for title
-            b=50,                          # Bottom margin for annotations
-            l=50,                          # Left margin for y-axis labels
-            r=50                           # Right margin for legend
-        )
+        margin=dict(                       # Mobile-optimized margins
+            t=40,                          # Reduced top margin
+            b=40,                          # Reduced bottom margin
+            l=40,                          # Reduced left margin
+            r=40                           # Reduced right margin
+        ),
+        autosize=True,                      # Enable responsive sizing for mobile
+        font=dict(size=10)                  # Smaller font size for mobile readability
     )
 
     # Add user instruction annotation for better UX
@@ -1229,8 +1259,9 @@ def create_interactive_timeline(df_in: pd.DataFrame) -> str:
         },
         color_discrete_map={"Failed": "red", "Active": "green"},
         orientation="h",
-        width=800,
-        height=500
+        width=None,                    # Responsive width for mobile
+        height=400,                    # Reduced height for mobile
+        autosize=True                  # Enable auto-sizing
     )
 
     fig.update_layout(
@@ -1311,7 +1342,7 @@ def create_sector_dashboard(df_in: pd.DataFrame) -> str:
 
     # Update layout
     fig.update_layout(
-        height=800,
+        height=600,                    # Reduced height for mobile
         title_text="🏭 Interactive Sector Dashboard - Click and Zoom to Explore",
         showlegend=True
     )
@@ -1857,8 +1888,10 @@ def create_portfolio_heatmap(portfolio_df: pd.DataFrame) -> bytes:
     heatmap_df = pd.DataFrame(scores_data)
     heatmap_matrix = heatmap_df.set_index('Startup')[['Overall Score', 'Runway', 'Experience', 'Market', 'Traction', 'Growth']]
 
-    # Create heatmap
-    fig, ax = plt.subplots(figsize=(10, max(6, len(heatmap_df) * 0.5)))
+    # Create heatmap with mobile-optimized size
+    default_height = max(6, len(heatmap_df) * 0.5)
+    figsize = get_mobile_optimized_figsize(10, default_height)
+    fig, ax = plt.subplots(figsize=figsize)
 
     # Create heatmap with custom colormap
     sns.heatmap(

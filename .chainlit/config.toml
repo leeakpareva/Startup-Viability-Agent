@@ -90,9 +90,11 @@ name = "NAVADA"
 
 # default_theme = "dark"
 
-# layout = "wide"
+# Use default layout (compact not supported)
+layout = "default"
 
-# default_sidebar_state = "open"
+# Start with sidebar closed on mobile for more screen space
+default_sidebar_state = "closed"
 
 # Description of the assistant. This is used for HTML tags.
 description = "AI-Powered Startup Viability Agent - Risk assessment and data visualization for startups"
