@@ -1,6 +1,10 @@
 {
   "dependencies": ["."],
-  "graphs": {},
+  "graphs": {
+    "navada": {
+      "entrypoint": "navada_graph:graph"
+    }
+  },
   "env": ".env",
   "python_version": "3.11",
   "dockerfile": "Dockerfile"

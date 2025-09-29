@@ -10,6 +10,7 @@ import json  # JSON parsing (currently unused but available)
 import asyncio  # Async/await support for concurrent operations
 import chainlit as cl  # Chainlit framework for building conversational AI interfaces
 import pandas as pd  # Data manipulation and analysis with DataFrames
+import numpy as np  # Numerical operations for calculations
 import matplotlib.pyplot as plt  # Core plotting library for creating visualizations
 import seaborn as sns  # Statistical data visualization built on matplotlib
 import plotly.express as px  # Interactive plotting library for dynamic visualizations
@@ -32,7 +33,7 @@ try:
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
-    print("⚠️ scikit-learn not available - ML features disabled")
+    print("WARNING: scikit-learn not available - ML features disabled")
 
 # LangChain & LangSmith imports for hosting
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
@@ -40,12 +41,12 @@ from langchain_core.documents import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 # Optional vector store imports - handle gracefully if not available
 try:
-    from langchain.vectorstores import Chroma
+    from langchain_community.vectorstores import Chroma
     from langchain.chains import RetrievalQA
     CHROMA_AVAILABLE = True
 except ImportError:
     CHROMA_AVAILABLE = False
-    print("⚠️ Chroma vector store not available - RAG features disabled")
+    print("WARNING: Chroma vector store not available - RAG features disabled")
 from langsmith import traceable, Client as LangSmithClient
 from langsmith.wrappers import wrap_openai
 import langsmith as ls
@@ -61,6 +62,8 @@ load_dotenv()
 # Get API keys from environment
 api_key = os.getenv("OPENAI_API_KEY")
 langsmith_api_key = os.getenv("LS_API_KEY")
+search_api_key = os.getenv("SEARCH_API_KEY")
+tts_prompt_id = os.getenv("TTS_PROMPT_ID")
 
 # Configure LangSmith project name for tracing
 LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT", "navada-startup-agent")
@@ -72,11 +75,11 @@ if api_key:
     if langsmith_api_key:
         client = wrap_openai(base_client)
         langsmith_client = LangSmithClient(api_key=langsmith_api_key)
-        print("✅ LangSmith tracing enabled")
+        print("SUCCESS: LangSmith tracing enabled")
     else:
         client = base_client
         langsmith_client = None
-        print("ℹ️ LangSmith tracing disabled (no API key)")
+        print("INFO: LangSmith tracing disabled (no API key)")
 else:
     client = OpenAI()  # Will use default OPENAI_API_KEY from environment
     langsmith_client = None
@@ -103,63 +106,131 @@ PERSONAS = {
     "investor": {
         "name": "Investor Mode",
         "system_prompt": (
-            "You are a seasoned venture capitalist with 15+ years experience. "
-            "Focus on ROI, market size, competitive analysis, and exit strategies. "
-            "Be direct, data-driven, and ask tough financial questions. "
-            "Suggest concrete metrics to track and milestones for funding rounds."
+            "You are a seasoned venture capitalist with 15+ years experience managing $500M+ fund. "
+            "Your expertise includes: Series A-C valuations, due diligence, portfolio optimization, and exit strategies. "
+            "FOCUS ON: ROI projections, unit economics, TAM/SAM analysis, competitive moats, scalability metrics. "
+            "ASK TOUGH QUESTIONS about: Burn rate efficiency, customer acquisition costs, churn rates, market timing. "
+            "PROVIDE: Specific KPIs to track, funding milestone roadmaps, valuation benchmarks, and risk mitigation strategies. "
+            "Be direct, quantitative, and challenge assumptions. Reference comparable deals and market dynamics."
         ),
-        "style": "💼 **INVESTOR MODE** - VC perspective",
-        "color": "🔵"
+        "style": "**INVESTOR MODE** - VC perspective",
+        "color": "blue",
+        "questions": [
+            "What's your customer acquisition cost and lifetime value ratio?",
+            "How do you plan to achieve 10x returns for investors?",
+            "What's your defensible competitive moat?",
+            "Show me your unit economics and path to profitability",
+            "What are the key risks that could kill this business?",
+            "How does this compare to other investments in your space?",
+            "What's your exit strategy and timeline?",
+            "How will you use the funding to hit next milestones?"
+        ],
+        "charts": ["funding_efficiency", "stage_progression", "market_opportunity", "risk_assessment"]
     },
     "founder": {
         "name": "Founder Mode",
         "system_prompt": (
-            "You are an experienced startup founder who's built multiple companies. "
-            "Focus on practical execution, team building, product development, "
-            "and overcoming early-stage challenges. Be supportive, strategic, "
-            "and share tactical advice based on real founder experiences."
+            "You are an experienced startup founder who's built 3 companies (1 exit, 1 failure, 1 current unicorn). "
+            "Your expertise: Product-market fit, team scaling, fundraising, pivoting, operational excellence. "
+            "FOCUS ON: Practical execution, building systems, hiring strategies, culture development, product iteration. "
+            "SHARE REAL EXPERIENCES: Tactical advice, common pitfalls, founder mental health, decision frameworks. "
+            "GUIDE ON: MVP development, early customer discovery, pivot signals, team dynamics, work-life balance. "
+            "Be supportive but honest about the challenges ahead. Emphasize learning from failures and building resilience."
         ),
-        "style": "🚀 **FOUNDER MODE** - Entrepreneur perspective",
-        "color": "🟢"
+        "style": "**FOUNDER MODE** - Entrepreneur perspective",
+        "color": "green",
+        "questions": [
+            "How did you discover this problem worth solving?",
+            "What's your MVP and how are you validating it?",
+            "How are you building and scaling your team?",
+            "What's your biggest challenge right now?",
+            "How do you know if you should pivot?",
+            "What systems are you building for growth?",
+            "How are you maintaining founder mental health?",
+            "What would you do differently if starting over?"
+        ],
+        "charts": ["growth_trajectory", "team_performance", "stage_progression", "market_opportunity"]
     }
 }
 
 # =============================
 # SAMPLE DATASET - STARTUP DATA
 # =============================
-# Create a comprehensive fake dataset with 12 startups across various sectors
+# Create a comprehensive fake dataset with 24 startups across various sectors
 # This dataset includes multiple dimensions of startup metrics for analysis:
-# - Financial: Funding amount, burn rate
-# - Team: Founder experience
-# - Market: Market size, sector, geography
-# - Outcome: Success/failure status
+# - Financial: Funding amount, burn rate, revenue metrics
+# - Team: Founder experience, team size
+# - Market: Market size, sector, geography, competitive landscape
+# - Product: Business model strength, moat, traction
+# - Outcome: Success/failure status with detailed metrics
 data = {
     "Startup": [
         "TechX", "Foodly", "EcoGo", "EduSmart", "MediAI", "FinSolve", "Healthify",
-        "GreenCore", "LogistiChain", "RoboAssist", "NeuroStream", "ByteCart"
+        "GreenCore", "LogistiChain", "RoboAssist", "NeuroStream", "ByteCart",
+        "CryptoFlow", "AIVision", "BioTech", "CleanWater", "SpaceX", "VRWorld",
+        "SolarTech", "AgriBot", "NanoMed", "BlockChain", "CloudSoft", "GameHub"
     ],
     # Funding amounts in millions USD - represents total funding raised
-    "Funding_USD_M":       [5.0, 1.2, 0.8, 3.0, 12.0, 7.5, 4.2, 9.8, 15.0, 6.6, 18.0, 2.5],
+    "Funding_USD_M": [5.0, 1.2, 0.8, 3.0, 12.0, 7.5, 4.2, 9.8, 15.0, 6.6, 18.0, 2.5,
+                      25.0, 8.5, 35.0, 4.8, 50.0, 12.5, 22.0, 6.2, 28.0, 16.0, 9.5, 3.8],
 
     # Burn rate in months - how many months the funding lasts at current spending
-    # Lower burn rate = burning through money faster
-    "Burn_Rate_Months":    [12, 6, 3, 9, 24, 18, 10, 15, 30, 8, 26, 7],
+    "Burn_Rate_Months": [12, 6, 3, 9, 24, 18, 10, 15, 30, 8, 26, 7,
+                         20, 14, 36, 12, 48, 18, 24, 10, 30, 22, 16, 8],
 
     # Average years of experience across founding team members
-    "Founders_Experience_Yrs":[2, 1, 0, 3, 8, 5, 6, 4, 10, 2, 7, 1],
+    "Founders_Experience_Yrs": [2, 1, 0, 3, 8, 5, 6, 4, 10, 2, 7, 1,
+                                12, 6, 15, 4, 20, 8, 9, 3, 11, 7, 5, 2],
 
     # Total addressable market size in billions USD
-    "Market_Size_Bn":      [50, 5, 2, 15, 80, 60, 25, 40, 100, 20, 120, 8],
+    "Market_Size_Bn": [50, 5, 2, 15, 80, 60, 25, 40, 100, 20, 120, 8,
+                       150, 35, 200, 12, 500, 75, 90, 18, 160, 110, 45, 22],
 
     # Binary outcome: 1 = failed, 0 = still operating/successful
-    "Failed":              [1, 1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1],
+    "Failed": [1, 1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1,
+               0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1],
 
-    # Country codes (UK, DE=Germany, FR=France, US=United States)
-    "Country":             ["UK", "UK", "UK", "UK", "DE", "FR", "US", "UK", "US", "UK", "US", "UK"],
+    # Country codes
+    "Country": ["UK", "UK", "UK", "UK", "DE", "FR", "US", "UK", "US", "UK", "US", "UK",
+                "US", "CA", "CH", "DE", "US", "JP", "AU", "IN", "IL", "SG", "SE", "NL"],
 
     # Industry sector classification
-    "Sector":              ["Tech","Food","Transport","EdTech","HealthTech","FinTech",
-                            "HealthTech","Energy","Logistics","Robotics","HealthTech","Retail"]
+    "Sector": ["Tech","Food","Transport","EdTech","HealthTech","FinTech","HealthTech","Energy",
+               "Logistics","Robotics","HealthTech","Retail","Crypto","AI","BioTech","CleanTech",
+               "Aerospace","VR/AR","Energy","AgTech","MedTech","Blockchain","SaaS","Gaming"],
+
+    # Business model strength (1-5 scale)
+    "Business_Model": [3, 2, 1, 4, 5, 4, 3, 4, 5, 2, 4, 2,
+                       4, 5, 5, 3, 5, 3, 4, 3, 5, 4, 4, 2],
+
+    # Competitive moat (1-5 scale: 1=no moat, 5=strong moat)
+    "Moat": [2, 1, 1, 3, 5, 3, 2, 3, 4, 2, 4, 1,
+             3, 4, 5, 2, 5, 3, 3, 2, 4, 3, 3, 2],
+
+    # Monthly recurring revenue in thousands USD
+    "Traction_MRR_K": [5, 2, 0, 15, 45, 25, 8, 35, 60, 3, 50, 1,
+                       80, 30, 120, 10, 200, 20, 55, 8, 90, 40, 22, 5],
+
+    # Monthly growth rate percentage
+    "Growth_Rate_Pct": [5, 2, -5, 12, 18, 15, 8, 20, 25, 1, 22, -2,
+                        28, 15, 30, 6, 35, 10, 18, 3, 25, 20, 12, 2],
+
+    # Competition intensity (1-5 scale: 1=low competition, 5=high competition)
+    "Competition": [4, 5, 3, 3, 2, 4, 4, 3, 2, 4, 2, 5,
+                    3, 3, 2, 4, 1, 4, 3, 4, 2, 3, 4, 5],
+
+    # Team size (number of employees)
+    "Team_Size": [12, 5, 3, 8, 25, 18, 10, 22, 35, 6, 28, 4,
+                  45, 15, 60, 12, 120, 20, 30, 8, 40, 25, 18, 7],
+
+    # Years since founding
+    "Years_Since_Founding": [2.5, 1.8, 1.2, 2.0, 4.0, 3.2, 2.8, 3.5, 5.0, 1.5, 4.2, 1.0,
+                             3.8, 2.5, 6.0, 2.2, 8.0, 3.0, 4.5, 1.8, 5.5, 3.8, 2.8, 1.5],
+
+    # Funding stage
+    "Stage": ["Seed", "Pre-Seed", "Pre-Seed", "Seed", "Series A", "Seed", "Seed", "Series A",
+              "Series B", "Seed", "Series A", "Pre-Seed", "Series A", "Seed", "Series B",
+              "Seed", "Series C", "Series A", "Series A", "Seed", "Series B", "Series A", "Seed", "Pre-Seed"]
 }
 
 # Convert the dictionary into a pandas DataFrame for easier manipulation and analysis
@@ -177,6 +248,210 @@ df["Est_Failure_Year"] = FUNDING_YEAR + (df["Funding_USD_M"] / df["Burn_Rate_Mon
 # =============================
 # UTILITY FUNCTIONS - CHART GENERATION
 # =============================
+
+def plot_growth_trajectory(df_in: pd.DataFrame):
+    """
+    Create a growth trajectory chart showing MRR growth over time
+    """
+    figsize = get_mobile_optimized_figsize(10, 6)
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # Create growth trajectory data
+    successful = df_in[df_in['Failed'] == 0]
+    failed = df_in[df_in['Failed'] == 1]
+
+    ax.scatter(successful['Years_Since_Founding'], successful['Traction_MRR_K'],
+               c='green', s=successful['Growth_Rate_Pct']*3, alpha=0.7, label='Successful')
+    ax.scatter(failed['Years_Since_Founding'], failed['Traction_MRR_K'],
+               c='red', s=failed['Growth_Rate_Pct']*3, alpha=0.7, label='Failed')
+
+    ax.set_xlabel('Years Since Founding')
+    ax.set_ylabel('Monthly Recurring Revenue (K USD)')
+    ax.set_title('Growth Trajectory: MRR vs Company Age\n(Bubble size = Growth Rate)')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    return fig_to_bytes(fig)
+
+def plot_team_performance(df_in: pd.DataFrame):
+    """
+    Create a team performance matrix showing team size vs experience
+    """
+    figsize = get_mobile_optimized_figsize(10, 6)
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # Color by success/failure
+    colors = ['red' if failed else 'green' for failed in df_in['Failed']]
+
+    scatter = ax.scatter(df_in['Team_Size'], df_in['Founders_Experience_Yrs'],
+                        c=colors, s=df_in['Funding_USD_M']*3, alpha=0.7)
+
+    ax.set_xlabel('Team Size (Employees)')
+    ax.set_ylabel('Founder Experience (Years)')
+    ax.set_title('Team Performance Matrix\n(Bubble size = Funding Amount)')
+
+    # Add trend line
+    z = np.polyfit(df_in['Team_Size'], df_in['Founders_Experience_Yrs'], 1)
+    p = np.poly1d(z)
+    ax.plot(df_in['Team_Size'], p(df_in['Team_Size']), "r--", alpha=0.8)
+
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    return fig_to_bytes(fig)
+
+def plot_market_opportunity(df_in: pd.DataFrame):
+    """
+    Create a market opportunity matrix showing market size vs competition
+    """
+    figsize = get_mobile_optimized_figsize(10, 6)
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # Invert competition for better visualization (low competition = high opportunity)
+    opportunity = 6 - df_in['Competition']  # Convert 1-5 to 5-1
+
+    colors = ['red' if failed else 'green' for failed in df_in['Failed']]
+
+    scatter = ax.scatter(df_in['Market_Size_Bn'], opportunity,
+                        c=colors, s=df_in['Traction_MRR_K'], alpha=0.7)
+
+    ax.set_xlabel('Market Size (Billions USD)')
+    ax.set_ylabel('Market Opportunity (5=Low Competition, 1=High Competition)')
+    ax.set_title('Market Opportunity Matrix\n(Bubble size = Current Traction)')
+
+    # Add quadrant lines
+    median_market = df_in['Market_Size_Bn'].median()
+    median_opportunity = opportunity.median()
+    ax.axvline(median_market, color='gray', linestyle='--', alpha=0.5)
+    ax.axhline(median_opportunity, color='gray', linestyle='--', alpha=0.5)
+
+    # Add quadrant labels
+    ax.text(median_market*1.5, 4.5, 'Sweet Spot\n(Big Market, Low Competition)',
+            ha='center', bbox=dict(boxstyle="round,pad=0.3", facecolor="lightgreen", alpha=0.7))
+
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    return fig_to_bytes(fig)
+
+def plot_funding_efficiency(df_in: pd.DataFrame):
+    """
+    Create a funding efficiency chart showing revenue per dollar raised
+    """
+    figsize = get_mobile_optimized_figsize(10, 6)
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # Calculate efficiency metrics
+    df_in['Revenue_Per_Dollar'] = (df_in['Traction_MRR_K'] * 12) / df_in['Funding_USD_M']  # Annual revenue per funding dollar
+    df_in['Efficiency_Score'] = df_in['Revenue_Per_Dollar'] * df_in['Growth_Rate_Pct'] / 100
+
+    colors = ['red' if failed else 'green' for failed in df_in['Failed']]
+
+    ax.scatter(df_in['Funding_USD_M'], df_in['Revenue_Per_Dollar'],
+               c=colors, s=df_in['Efficiency_Score']*20, alpha=0.7)
+
+    ax.set_xlabel('Total Funding Raised (Millions USD)')
+    ax.set_ylabel('Annual Revenue per Dollar Raised')
+    ax.set_title('Capital Efficiency Analysis\n(Bubble size = Efficiency Score)')
+
+    # Add efficiency benchmark line
+    efficient_companies = df_in[df_in['Revenue_Per_Dollar'] > df_in['Revenue_Per_Dollar'].median()]
+    if len(efficient_companies) > 0:
+        ax.axhline(df_in['Revenue_Per_Dollar'].median(), color='orange',
+                  linestyle='--', alpha=0.7, label='Median Efficiency')
+        ax.legend()
+
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    return fig_to_bytes(fig)
+
+def plot_stage_progression(df_in: pd.DataFrame):
+    """
+    Create a stage progression chart showing funding by stage
+    """
+    figsize = get_mobile_optimized_figsize(10, 6)
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # Group by stage and calculate metrics
+    stage_stats = df_in.groupby('Stage').agg({
+        'Funding_USD_M': ['mean', 'count'],
+        'Failed': 'mean',
+        'Traction_MRR_K': 'mean'
+    }).round(2)
+
+    stage_stats.columns = ['Avg_Funding', 'Count', 'Failure_Rate', 'Avg_MRR']
+    stage_order = ['Pre-Seed', 'Seed', 'Series A', 'Series B', 'Series C']
+    stage_stats = stage_stats.reindex([s for s in stage_order if s in stage_stats.index])
+
+    # Create dual y-axis chart
+    ax2 = ax.twinx()
+
+    bars = ax.bar(stage_stats.index, stage_stats['Avg_Funding'], alpha=0.7, color='skyblue', label='Avg Funding')
+    line = ax2.plot(stage_stats.index, stage_stats['Failure_Rate']*100, 'ro-', linewidth=2, label='Failure Rate %')
+
+    ax.set_xlabel('Funding Stage')
+    ax.set_ylabel('Average Funding (Millions USD)', color='blue')
+    ax2.set_ylabel('Failure Rate (%)', color='red')
+    ax.set_title('Funding Stage Analysis')
+
+    # Add value labels on bars
+    for i, bar in enumerate(bars):
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2., height + 0.5,
+                f'${height:.1f}M\n({int(stage_stats.iloc[i]["Count"])} companies)',
+                ha='center', va='bottom', fontsize=8)
+
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    return fig_to_bytes(fig)
+
+def plot_risk_assessment(df_in: pd.DataFrame):
+    """
+    Create a comprehensive risk assessment radar chart
+    """
+    figsize = get_mobile_optimized_figsize(8, 8)
+    fig, ax = plt.subplots(figsize=figsize, subplot_kw=dict(projection='polar'))
+
+    # Calculate risk metrics for successful vs failed companies
+    successful = df_in[df_in['Failed'] == 0]
+    failed = df_in[df_in['Failed'] == 1]
+
+    categories = ['Financial Risk', 'Market Risk', 'Team Risk', 'Competition Risk', 'Traction Risk']
+
+    # Normalize metrics to 0-10 scale (higher = more risk)
+    def calc_risk_scores(data):
+        financial_risk = 10 - (data['Burn_Rate_Months'].mean() / data['Burn_Rate_Months'].max() * 10)
+        market_risk = 10 - (data['Market_Size_Bn'].mean() / data['Market_Size_Bn'].max() * 10)
+        team_risk = 10 - (data['Founders_Experience_Yrs'].mean() / data['Founders_Experience_Yrs'].max() * 10)
+        competition_risk = data['Competition'].mean() * 2  # Scale 1-5 to 2-10
+        traction_risk = 10 - (data['Traction_MRR_K'].mean() / data['Traction_MRR_K'].max() * 10)
+        return [financial_risk, market_risk, team_risk, competition_risk, traction_risk]
+
+    successful_risks = calc_risk_scores(successful)
+    failed_risks = calc_risk_scores(failed)
+
+    # Number of variables
+    N = len(categories)
+    angles = [n / float(N) * 2 * np.pi for n in range(N)]
+    angles += angles[:1]  # Complete the circle
+
+    # Plot
+    successful_risks += successful_risks[:1]
+    failed_risks += failed_risks[:1]
+
+    ax.plot(angles, successful_risks, 'o-', linewidth=2, label='Successful Companies', color='green')
+    ax.fill(angles, successful_risks, alpha=0.25, color='green')
+    ax.plot(angles, failed_risks, 'o-', linewidth=2, label='Failed Companies', color='red')
+    ax.fill(angles, failed_risks, alpha=0.25, color='red')
+
+    ax.set_xticks(angles[:-1])
+    ax.set_xticklabels(categories)
+    ax.set_ylim(0, 10)
+    ax.set_title('Risk Assessment Profile\n(0=Low Risk, 10=High Risk)', pad=20)
+    ax.legend(loc='upper right', bbox_to_anchor=(1.2, 1.0))
+    ax.grid(True)
+
+    plt.tight_layout()
+    return fig_to_bytes(fig)
 
 def get_mobile_optimized_figsize(default_width: float, default_height: float) -> tuple:
     """
@@ -992,9 +1267,9 @@ def generate_investment_report(df_in: pd.DataFrame, startup_name: str = None) ->
 
     risk_text = f"""
     <b>High-Risk Indicators:</b><br/>
-    • {len(high_risk)} startups with burn rate under 10 months (high risk)<br/>
-    • {len(low_funding)} startups with funding under $3M (undercapitalized)<br/>
-    • {len(inexperienced)} startups with founders having less than 3 years experience<br/><br/>
+    - {len(high_risk)} startups with burn rate under 10 months (high risk)<br/>
+    - {len(low_funding)} startups with funding under $3M (undercapitalized)<br/>
+    - {len(inexperienced)} startups with founders having less than 3 years experience<br/><br/>
 
     <b>Key Risks:</b><br/>
     1. <b>Runway Risk:</b> Startups with short runways may fail before achieving product-market fit<br/>
@@ -1045,10 +1320,10 @@ def generate_investment_report(df_in: pd.DataFrame, startup_name: str = None) ->
         <b>Recommendation: {recommendation}</b><br/><br/>
 
         <b>Rationale:</b><br/>
-        • Runway of {runway_months:.1f} months provides {'adequate' if runway_months > 18 else 'limited'} time to achieve milestones<br/>
-        • Market size of ${market}B offers {'strong' if market > 50 else 'moderate'} growth potential<br/>
-        • Team experience of {experience} years is {'above' if experience >= 5 else 'below'} industry average<br/>
-        • Current status: {status}
+        - Runway of {runway_months:.1f} months provides {'adequate' if runway_months > 18 else 'limited'} time to achieve milestones<br/>
+        - Market size of ${market}B offers {'strong' if market > 50 else 'moderate'} growth potential<br/>
+        - Team experience of {experience} years is {'above' if experience >= 5 else 'below'} industry average<br/>
+        - Current status: {status}
         """
     else:
         # Portfolio recommendations
@@ -1065,7 +1340,7 @@ def generate_investment_report(df_in: pd.DataFrame, startup_name: str = None) ->
         """
 
         for idx, row in top_performers.iterrows():
-            rec_text += f"• {row['Startup']} ({row['Sector']}) - ${row['Funding_USD_M']}M funding<br/>"
+            rec_text += f"- {row['Startup']} ({row['Sector']}) - ${row['Funding_USD_M']}M funding<br/>"
 
     story.append(Paragraph(rec_text, styles['BodyText']))
     story.append(Spacer(1, 0.3*inch))
@@ -1718,6 +1993,223 @@ def analyze_scraped_content(scraped_data: pd.DataFrame, url: str, persona: Dict[
         return f"Analysis failed: {str(e)}"
 
 
+# =============================
+# INTERNET SEARCH FUNCTIONALITY
+# =============================
+
+def search_internet(query: str, count: int = 5) -> Dict[str, Any]:
+    """
+    Search the internet using Brave Search API
+
+    Args:
+        query (str): Search query
+        count (int): Number of results to return (default 5)
+
+    Returns:
+        dict: Search results with titles, descriptions, and URLs
+    """
+    if not search_api_key:
+        return {
+            "success": False,
+            "error": "Search API key not configured",
+            "results": []
+        }
+
+    try:
+        # Brave Search API endpoint
+        url = "https://api.search.brave.com/res/v1/web/search"
+
+        headers = {
+            "Accept": "application/json",
+            "Accept-Encoding": "gzip",
+            "X-Subscription-Token": search_api_key
+        }
+
+        params = {
+            "q": query,
+            "count": count,
+            "offset": 0,
+            "mkt": "en-US",
+            "safesearch": "moderate",
+            "freshness": "pw",  # Past week for fresh results
+            "text_decorations": False,
+            "search_lang": "en"
+        }
+
+        response = requests.get(url, headers=headers, params=params, timeout=10)
+        response.raise_for_status()
+
+        data = response.json()
+
+        # Extract relevant information from search results
+        results = []
+        if "web" in data and "results" in data["web"]:
+            for result in data["web"]["results"][:count]:
+                results.append({
+                    "title": result.get("title", ""),
+                    "description": result.get("description", ""),
+                    "url": result.get("url", ""),
+                    "age": result.get("age", ""),
+                    "language": result.get("language", "en")
+                })
+
+        return {
+            "success": True,
+            "query": query,
+            "results": results,
+            "total_results": len(results)
+        }
+
+    except requests.exceptions.RequestException as e:
+        return {
+            "success": False,
+            "error": f"Search request failed: {str(e)}",
+            "results": []
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Search error: {str(e)}",
+            "results": []
+        }
+
+
+def analyze_search_results(search_data: Dict[str, Any], persona: Dict[str, str], context: str = "") -> str:
+    """
+    Analyze search results using AI based on current persona mode
+
+    Args:
+        search_data (dict): Search results from search_internet()
+        persona (dict): Current persona (investor/founder mode)
+        context (str): Additional context for analysis
+
+    Returns:
+        str: AI analysis of search results
+    """
+    if not search_data["success"] or not search_data["results"]:
+        return "No search results to analyze or search failed."
+
+    try:
+        # Format search results for analysis
+        results_text = f"Search Query: {search_data['query']}\n\n"
+        results_text += f"Found {search_data['total_results']} results:\n\n"
+
+        for i, result in enumerate(search_data['results'], 1):
+            results_text += f"{i}. **{result['title']}**\n"
+            results_text += f"   URL: {result['url']}\n"
+            results_text += f"   Description: {result['description']}\n"
+            if result.get('age'):
+                results_text += f"   Age: {result['age']}\n"
+            results_text += "\n"
+
+        # Create persona-specific analysis prompt
+        analysis_prompt = f"{persona['system_prompt']}\n\n"
+        analysis_prompt += f"Analyze these search results from a {persona['name']} perspective.\n\n"
+
+        if context:
+            analysis_prompt += f"Context: {context}\n\n"
+
+        analysis_prompt += "Provide insights, opportunities, risks, and actionable recommendations based on the search results."
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": analysis_prompt
+                },
+                {
+                    "role": "user",
+                    "content": f"Analyze these search results:\n\n{results_text}"
+                }
+            ],
+            max_tokens=800,
+            temperature=0.7
+        )
+
+        return response.choices[0].message.content
+
+    except Exception as e:
+        return f"Analysis failed: {str(e)}"
+
+
+# =============================
+# TEXT-TO-SPEECH FUNCTIONALITY
+# =============================
+
+def generate_speech(text: str, voice: str = "alloy") -> bytes:
+    """
+    Generate speech from text using OpenAI TTS API
+
+    Args:
+        text (str): Text to convert to speech
+        voice (str): Voice to use (alloy, echo, fable, onyx, nova, shimmer)
+
+    Returns:
+        bytes: Audio data in MP3 format
+    """
+    try:
+        if not api_key:
+            raise Exception("OpenAI API key not configured")
+
+        response = client.audio.speech.create(
+            model="tts-1",
+            voice=voice,
+            input=text,
+            speed=1.0
+        )
+
+        return response.content
+
+    except Exception as e:
+        print(f"TTS generation failed: {str(e)}")
+        return b""
+
+
+def create_audio_message(content: str, voice: str = "alloy") -> cl.Audio:
+    """
+    Create Chainlit audio message with TTS
+
+    Args:
+        content (str): Text content to convert to speech
+        voice (str): Voice to use for TTS
+
+    Returns:
+        cl.Audio: Chainlit audio element
+    """
+    try:
+        # Limit text length for TTS (OpenAI has character limits)
+        max_length = 4000
+        if len(content) > max_length:
+            # Truncate but try to end at a sentence
+            truncated = content[:max_length]
+            last_period = truncated.rfind('.')
+            if last_period > max_length * 0.8:  # If period is reasonably close to end
+                content = truncated[:last_period + 1]
+            else:
+                content = truncated + "..."
+
+        # Generate speech
+        audio_data = generate_speech(content, voice)
+
+        if not audio_data:
+            return None
+
+        # Create audio element
+        audio = cl.Audio(
+            content=audio_data,
+            name="navada_response.mp3",
+            display="inline",
+            auto_play=False
+        )
+
+        return audio
+
+    except Exception as e:
+        print(f"Audio message creation failed: {str(e)}")
+        return None
+
+
 def benchmark_founder_idea(features: Dict[str, Any], df: pd.DataFrame) -> Dict[str, Any]:
     """
     Benchmark a founder's idea against dataset averages and percentiles.
@@ -2087,26 +2579,38 @@ async def start():
         "# 👋 Welcome to NAVADA\n\n"
         "**NAVADA** (Startup Viability Agent) helps you analyze startup risk, funding, and failure patterns "
         "with **interactive charts and AI analysis**.\n\n"
-        "## 📊 Built-in Charts:\n\n"
-        "🔹 **timeline** - Failure timeline for all startups\n"
-        "🔹 **funding vs burn** - Funding vs burn rate scatter plot\n"
-        "🔹 **sector comparison chart** - Average funding by sector\n"
-        "🔹 **failure rate by country** - Failure rates per country\n"
-        "🔹 **experience vs success chart** - Founder experience analysis\n\n"
+        "## 🎭 Analysis Modes:\n\n"
+        "💼 **Investor Mode** - VC perspective focused on ROI and exit strategies\n"
+        "🚀 **Founder Mode** - Entrepreneur perspective focused on execution and growth\n\n"
+        "## 📊 Advanced Charts:\n\n"
+        "🔹 **Growth Trajectory** - MRR growth patterns vs company age\n"
+        "🔹 **Team Performance** - Team size vs founder experience matrix\n"
+        "🔹 **Market Opportunity** - Market size vs competition analysis\n"
+        "🔹 **Funding Efficiency** - Capital efficiency and ROI analysis\n"
+        "🔹 **Stage Progression** - Funding stages vs failure rates\n"
+        "🔹 **Risk Assessment** - Comprehensive risk radar chart\n\n"
+        "## 📈 Interactive Tools:\n\n"
+        "🔹 **Interactive Scatter** - Dynamic correlations and filtering\n"
+        "🔹 **Sector Dashboard** - Multi-dimensional sector analysis\n"
+        "🔹 **Interactive Timeline** - Failure patterns over time\n\n"
         "## 🤖 AI-Powered Features:\n\n"
-        "🔹 **assess idea** - Interactive viability scoring\n"
-        "🔹 **benchmark idea** - Compare your startup against dataset averages\n"
-        "🔹 **portfolio mode** - Analyze multiple startups with heatmap visualization\n"
-        "🔹 **generate report** - Create comprehensive PDF investment analysis\n"
-        "🔹 **Natural language charts** - Ask me to 'show a bar chart of...' and I'll generate it!\n"
-        "🔹 **upload csv** - Replace dataset with your own data\n\n"
-        "## 💬 Sample Questions:\n\n"
-        "• Which sector looks riskiest?\n"
-        "• Show me a pie chart of funding by sector\n"
-        "• Visualize the relationship between market size and failure\n"
-        "• Compare UK vs US startup survival rates\n\n"
+        "🔹 **assess idea** - Interactive viability scoring with 24 data points\n"
+        "🔹 **benchmark** - Compare your startup against 24 successful companies\n"
+        "🔹 **portfolio** - Analyze multiple startups with heatmap visualization\n"
+        "🔹 **insights** - AI-powered risk assessment and opportunities\n"
+        "🔹 **questions** - Guided questions based on your current mode\n\n"
+        "## 🔍 Internet Search:\n\n"
+        "🔹 **search [query]** - Get up-to-date market intelligence and trends\n"
+        "🔹 **latest news** - Current developments in startup ecosystem\n"
+        "🔹 **current trends** - Market shifts and opportunities\n"
+        "🔹 Auto-triggered for questions about recent events or market updates\n\n"
+        "## 💬 Get Started:\n\n"
+        "• Type **'investor mode'** or **'founder mode'** to set your perspective\n"
+        "• Type **'questions'** to get guided analysis questions\n"
+        "• Ask: \"Which chart should I look at first?\"\n"
+        "• Try: \"Show me funding efficiency\" or \"Risk assessment\"\n\n"
         "---\n\n"
-        "**Ready to start?** Type a command, ask for a chart, or ask me anything!"
+        "**Ready to start?** Choose your mode and dive into comprehensive startup analysis!"
     )
 
     # Create settings panel with About section and quick actions
@@ -2121,7 +2625,7 @@ async def start():
             cl.input_widget.Select(
                 id="quick_actions",
                 label="⚡ Quick Actions",
-                values=["timeline", "funding vs burn", "sector comparison chart", "assess idea", "upload csv"],
+                values=["investor mode", "founder mode", "questions", "growth trajectory", "funding efficiency", "risk assessment", "market opportunity", "team performance", "stage progression", "assess idea", "portfolio"],
                 initial_index=0,
                 description="Select a command to execute quickly"
             ),
@@ -3059,7 +3563,279 @@ async def main(message: cl.Message):
         return
 
     # =============================
-    # ROUTE 9: PERSONA MANAGEMENT
+    # ROUTE 9: NEW ADVANCED CHARTS
+    # =============================
+    if "growth trajectory" in user_input or ("growth" in user_input and "chart" in user_input):
+        msg = cl.Message(content="📈 Generating growth trajectory analysis...")
+        await msg.send()
+
+        png = plot_growth_trajectory(df)
+        await msg.remove()
+
+        text_msg = cl.Message(
+            content="### 📈 Growth Trajectory Analysis\n\n"
+                   "This chart shows **MRR growth vs company age** with bubble sizes representing growth rates.\n"
+                   "- **Green dots**: Successful companies\n"
+                   "- **Red dots**: Failed companies\n"
+                   "- **Bubble size**: Monthly growth rate percentage"
+        )
+        await text_msg.send()
+
+        image = cl.Image(content=png, name="growth_trajectory.png", display="inline")
+        await image.send(for_id=text_msg.id)
+        return
+
+    if "team performance" in user_input or ("team" in user_input and "matrix" in user_input):
+        msg = cl.Message(content="👥 Generating team performance matrix...")
+        await msg.send()
+
+        png = plot_team_performance(df)
+        await msg.remove()
+
+        text_msg = cl.Message(
+            content="### 👥 Team Performance Matrix\n\n"
+                   "This chart analyzes **team size vs founder experience** correlation.\n"
+                   "- **Bubble size**: Total funding raised\n"
+                   "- **Red trend line**: Shows correlation between team size and experience\n"
+                   "- **Colors**: Green = successful, Red = failed"
+        )
+        await text_msg.send()
+
+        image = cl.Image(content=png, name="team_performance.png", display="inline")
+        await image.send(for_id=text_msg.id)
+        return
+
+    if "market opportunity" in user_input or ("market" in user_input and "competition" in user_input):
+        msg = cl.Message(content="🎯 Generating market opportunity matrix...")
+        await msg.send()
+
+        png = plot_market_opportunity(df)
+        await msg.remove()
+
+        text_msg = cl.Message(
+            content="### 🎯 Market Opportunity Matrix\n\n"
+                   "This chart identifies **sweet spots** in market size vs competition landscape.\n"
+                   "- **X-axis**: Market size (bigger = better)\n"
+                   "- **Y-axis**: Market opportunity (higher = less competition)\n"
+                   "- **Bubble size**: Current traction (MRR)\n"
+                   "- **Sweet Spot**: Large market + low competition"
+        )
+        await text_msg.send()
+
+        image = cl.Image(content=png, name="market_opportunity.png", display="inline")
+        await image.send(for_id=text_msg.id)
+        return
+
+    if "funding efficiency" in user_input or ("capital" in user_input and "efficiency" in user_input):
+        msg = cl.Message(content="💰 Generating capital efficiency analysis...")
+        await msg.send()
+
+        png = plot_funding_efficiency(df)
+        await msg.remove()
+
+        text_msg = cl.Message(
+            content="### 💰 Capital Efficiency Analysis\n\n"
+                   "This chart shows **revenue generated per dollar invested**.\n"
+                   "- **X-axis**: Total funding raised\n"
+                   "- **Y-axis**: Annual revenue per dollar of funding\n"
+                   "- **Bubble size**: Efficiency score (revenue × growth rate)\n"
+                   "- **Orange line**: Median efficiency benchmark"
+        )
+        await text_msg.send()
+
+        image = cl.Image(content=png, name="funding_efficiency.png", display="inline")
+        await image.send(for_id=text_msg.id)
+        return
+
+    if "stage progression" in user_input or ("funding" in user_input and "stage" in user_input):
+        msg = cl.Message(content="🚀 Generating funding stage analysis...")
+        await msg.send()
+
+        png = plot_stage_progression(df)
+        await msg.remove()
+
+        text_msg = cl.Message(
+            content="### 🚀 Funding Stage Analysis\n\n"
+                   "This chart tracks **funding amounts and failure rates by stage**.\n"
+                   "- **Blue bars**: Average funding amount per stage\n"
+                   "- **Red line**: Failure rate percentage\n"
+                   "- **Labels**: Show funding amount and company count\n"
+                   "- **Insight**: Later stages typically have lower failure rates"
+        )
+        await text_msg.send()
+
+        image = cl.Image(content=png, name="stage_progression.png", display="inline")
+        await image.send(for_id=text_msg.id)
+        return
+
+    if "risk assessment" in user_input or ("risk" in user_input and "radar" in user_input):
+        msg = cl.Message(content="🎯 Generating risk assessment radar...")
+        await msg.send()
+
+        png = plot_risk_assessment(df)
+        await msg.remove()
+
+        text_msg = cl.Message(
+            content="### 🎯 Risk Assessment Profile\n\n"
+                   "This **radar chart** compares risk profiles between successful and failed companies.\n"
+                   "- **Green area**: Successful companies' average risk profile\n"
+                   "- **Red area**: Failed companies' average risk profile\n"
+                   "- **Scale**: 0 = low risk, 10 = high risk\n"
+                   "- **Categories**: Financial, Market, Team, Competition, and Traction risks"
+        )
+        await text_msg.send()
+
+        image = cl.Image(content=png, name="risk_assessment.png", display="inline")
+        await image.send(for_id=text_msg.id)
+        return
+
+    # =============================
+    # ROUTE 10: GUIDED QUESTIONS
+    # =============================
+    if "questions" in user_input or "guide me" in user_input or "what should i ask" in user_input:
+        await thinking_msg.remove()
+
+        persona = get_current_persona()
+        questions = persona.get("questions", [])
+
+        content = f"### 🎯 {persona['name']} - Guided Questions\n\n"
+        content += "Here are key questions to explore based on your current mode:\n\n"
+
+        for i, question in enumerate(questions, 1):
+            content += f"**{i}.** {question}\n"
+
+        content += "\n📊 **Recommended Charts:**\n"
+        for chart in persona.get("charts", []):
+            chart_name = chart.replace("_", " ").title()
+            content += f"- Type **'{chart_name}'** for {chart_name} analysis\n"
+
+        content += "\n💡 **Pro Tip:** Copy any question above and I'll provide detailed analysis!"
+
+        await cl.Message(content=content).send()
+        return
+
+    # =============================
+    # ROUTE 11: INTERNET SEARCH
+    # =============================
+    if user_input.startswith("search ") or \
+       ("search" in user_input and ("internet" in user_input or "web" in user_input)) or \
+       ("search" in user_input and any(word in user_input for word in ["latest", "recent", "current", "news", "trends", "2024", "2025"])) or \
+       ("what's happening" in user_input) or \
+       ("latest news" in user_input) or \
+       ("current trends" in user_input) or \
+       ("find" in user_input and any(word in user_input for word in ["latest", "recent", "current", "new"])):
+
+        await thinking_msg.remove()
+
+        # Extract search query
+        if user_input.startswith("search "):
+            query = user_input[7:].strip()
+        elif "search" in user_input:
+            # Extract query after "search"
+            parts = user_input.split("search", 1)
+            if len(parts) > 1:
+                query = parts[1].strip()
+            else:
+                query = user_input
+        else:
+            # For phrases like "what's happening with AI startups"
+            query = user_input
+
+        if not query:
+            await cl.Message(
+                content="Please provide a search query. For example:\n"
+                       "- **search AI startups 2024**\n"
+                       "- **latest trends in fintech**\n"
+                       "- **current venture capital news**"
+            ).send()
+            return
+
+        msg = cl.Message(content=f"🔍 Searching for: **{query}**...")
+        await msg.send()
+
+        # Perform search
+        search_results = search_internet(query, count=5)
+
+        if not search_results["success"]:
+            await msg.update(content=f"❌ Search failed: {search_results['error']}")
+            return
+
+        # Get current persona for analysis
+        persona = get_current_persona()
+
+        # Analyze results with persona context
+        analysis = analyze_search_results(search_results, persona, "startup and investment context")
+
+        # Format and send results
+        content = f"## 🔍 Search Results: {query}\n\n"
+        content += f"**Found {search_results['total_results']} results:**\n\n"
+
+        for i, result in enumerate(search_results['results'], 1):
+            content += f"**{i}. {result['title']}**\n"
+            content += f"🔗 {result['url']}\n"
+            content += f"📝 {result['description'][:200]}{'...' if len(result['description']) > 200 else ''}\n"
+            if result.get('age'):
+                content += f"⏰ {result['age']}\n"
+            content += "\n"
+
+        content += f"---\n\n## 🤖 {persona['name']} Analysis:\n\n{analysis}"
+
+        msg.content = content
+        await msg.update()
+        return
+
+    # =============================
+    # ROUTE 12: TEXT-TO-SPEECH
+    # =============================
+    if user_input.startswith("speak ") or user_input.startswith("say ") or \
+       ("audio" in user_input and "response" in user_input) or \
+       ("read aloud" in user_input) or ("voice" in user_input):
+
+        await thinking_msg.remove()
+
+        # Extract text to speak
+        if user_input.startswith("speak "):
+            text_to_speak = user_input[6:].strip()
+        elif user_input.startswith("say "):
+            text_to_speak = user_input[4:].strip()
+        else:
+            text_to_speak = "Welcome to NAVADA, your AI-powered startup viability agent. I can analyze startup risks, generate charts, and provide investment insights in both investor and founder modes."
+
+        if not text_to_speak:
+            await cl.Message(
+                content="Please provide text to convert to speech:\n"
+                       "- **speak [your text]**\n"
+                       "- **say [your text]**\n"
+                       "- **read aloud [your text]**"
+            ).send()
+            return
+
+        # Generate audio
+        msg = cl.Message(content=f"🔊 Generating speech: **{text_to_speak[:100]}{'...' if len(text_to_speak) > 100 else ''}**")
+        await msg.send()
+
+        try:
+            # Create audio message
+            audio = create_audio_message(text_to_speak, voice="alloy")
+
+            if audio:
+                # Send text message with audio
+                content = f"🔊 **Audio Response:**\n\n{text_to_speak}"
+                text_msg = cl.Message(content=content)
+                await text_msg.send()
+
+                # Send audio
+                await audio.send(for_id=text_msg.id)
+            else:
+                await msg.update(content="❌ Failed to generate audio. Please try again.")
+
+        except Exception as e:
+            await msg.update(content=f"❌ Audio generation error: {str(e)}")
+
+        return
+
+    # =============================
+    # ROUTE 13: PERSONA MANAGEMENT
     # =============================
     if "investor mode" in user_input or "switch to investor" in user_input:
         # Remove thinking indicator
@@ -3072,16 +3848,27 @@ async def main(message: cl.Message):
                    "I'm now analyzing from a **venture capitalist perspective**. "
                    "I'll focus on ROI, market size, competitive analysis, and exit strategies.\n\n"
                    "**What would you like to analyze today?**\n\n"
-                   "💰 **Quick Options:**\n"
-                   "• Type **'portfolio'** - Analyze all startups with investment recommendations\n"
-                   "• Type **'insights'** - Get AI-powered risk assessment and opportunities\n"
-                   "• Type **'benchmark'** - Compare a new startup idea against our data\n"
-                   "• Type **'sector dashboard'** - Interactive sector performance analysis\n"
-                   "• Type **'scrape <url>'** - Analyze competitor websites for investment insights\n\n"
-                   "📊 **Or ask me directly:**\n"
+                   "💰 **Quick Analysis:**\n"
+                   "• Type **'portfolio'** - Investment recommendations across all startups\n"
+                   "• Type **'insights'** - AI-powered risk assessment and opportunities\n"
+                   "• Type **'benchmark'** - Compare new startup ideas against our dataset\n"
+                   "• Type **'questions'** - Get guided investor-focused questions\n\n"
+                   "📊 **Advanced Charts:**\n"
+                   "• **'Funding Efficiency'** - Capital efficiency and ROI analysis\n"
+                   "• **'Stage Progression'** - Funding stages vs failure rates\n"
+                   "• **'Market Opportunity'** - Market size vs competition matrix\n"
+                   "• **'Risk Assessment'** - Comprehensive risk radar chart\n\n"
+                   "📈 **Interactive Tools:**\n"
+                   "• **'Sector Dashboard'** - Multi-dimensional sector analysis\n"
+                   "• **'Interactive'** - Dynamic scatter plots and correlations\n\n"
+                   "🔍 **Internet Search:**\n"
+                   "• **'search latest VC trends'** - Get up-to-date market intelligence\n"
+                   "• **'current startup news'** - Recent developments in startup ecosystem\n"
+                   "• **'search [company name] funding'** - Research specific companies\n\n"
+                   "🎯 **Ask me directly:**\n"
                    "• \"Which startups have the best ROI potential?\"\n"
-                   "• \"What sectors should I avoid investing in?\"\n"
-                   "• \"Show me failure rates by market size\""
+                   "• \"What are the red flags in our portfolio?\"\n"
+                   "• \"Search for latest AI startup trends\""
         ).send()
         return
 
@@ -3094,18 +3881,30 @@ async def main(message: cl.Message):
         await cl.Message(
             content=f"{persona['color']} {persona['style']}\n\n"
                    "I'm now analyzing from an **experienced founder perspective**. "
-                   "I'll focus on practical execution, team building, and tactical advice.\n\n"
+                   "I'll focus on practical execution, team building, product development, and tactical advice.\n\n"
                    "**What challenges can I help you tackle today?**\n\n"
-                   "🚀 **Quick Options:**\n"
-                   "• Type **'assess idea'** - Get a viability score for your startup concept\n"
-                   "• Type **'benchmark'** - See how your metrics compare to successful startups\n"
+                   "🚀 **Quick Assessment:**\n"
+                   "• Type **'assess idea'** - Get viability score for your startup concept\n"
+                   "• Type **'benchmark'** - Compare your metrics to successful startups\n"
                    "• Type **'insights'** - Get tactical recommendations to reduce risk\n"
-                   "• Type **'timeline'** - See failure patterns to avoid common pitfalls\n"
-                   "• Type **'scrape <url>'** - Learn from competitor websites and strategies\n\n"
-                   "💡 **Or ask me directly:**\n"
-                   "• \"How can I extend my runway?\"\n"
-                   "• \"What are the biggest risks I should watch for?\"\n"
-                   "• \"Which successful startups are similar to mine?\""
+                   "• Type **'questions'** - Get guided founder-focused questions\n\n"
+                   "📊 **Growth Analysis:**\n"
+                   "• **'Growth Trajectory'** - MRR growth patterns and success factors\n"
+                   "• **'Team Performance'** - Team size vs experience optimization\n"
+                   "• **'Market Opportunity'** - Find your competitive sweet spot\n"
+                   "• **'Stage Progression'** - Funding stage benchmarks and expectations\n\n"
+                   "📈 **Tactical Tools:**\n"
+                   "• **'Timeline'** - Failure patterns to avoid common pitfalls\n"
+                   "• **'Interactive'** - Explore data patterns affecting your sector\n"
+                   "• **'Portfolio'** - Study successful companies in your space\n\n"
+                   "🔍 **Market Intelligence:**\n"
+                   "• **'search competitor analysis'** - Research competitive landscape\n"
+                   "• **'latest startup challenges'** - Current industry challenges\n"
+                   "• **'search [your sector] trends'** - Stay ahead of market shifts\n\n"
+                   "💡 **Ask me directly:**\n"
+                   "• \"How can I extend my runway and reduce burn?\"\n"
+                   "• \"What team size is optimal for my stage?\"\n"
+                   "• \"Search for current SaaS pricing trends\""
         ).send()
         return
 
