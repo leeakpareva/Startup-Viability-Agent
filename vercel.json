@@ -1,19 +1,24 @@
 {
-  "version": 2,
-  "name": "navada-startup-agent",
   "builds": [
     {
-      "src": "app.py",
+      "src": "fastapi_vercel.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "app.py"
+      "dest": "fastapi_vercel.py"
     }
   ],
   "env": {
-    "PYTHONPATH": "/var/task"
+    "OPENAI_API_KEY": "@openai_api_key",
+    "LANGSMITH_API_KEY": "@langsmith_api_key",
+    "LANGSMITH_PROJECT": "@langsmith_project"
+  },
+  "functions": {
+    "fastapi_vercel.py": {
+      "maxDuration": 30
+    }
   }
 }

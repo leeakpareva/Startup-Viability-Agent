@@ -1,116 +1,33 @@
-# NAVADA - Startup Viability Agent Requirements
-# AI-Powered Startup Analysis Platform with Interactive Dashboards
+# NAVADA - Vercel Optimized Requirements
+# Minimal dependencies for FastAPI deployment on Vercel
 
-# =============================
-# CORE FRAMEWORK
-# =============================
-chainlit==2.8.0                    # Conversational AI interface framework
-openai==1.51.2                     # OpenAI GPT API client
-python-dotenv==1.0.1               # Environment variable management
+# Core FastAPI
+fastapi==0.104.1
+uvicorn==0.24.0
+pydantic==2.5.0
 
-# =============================
-# DATA PROCESSING & ANALYSIS
-# =============================
-pandas==2.1.4                      # Data manipulation and analysis
-numpy==1.26.2                      # Numerical computing (pandas dependency)
+# Essential AI/LLM
+openai==1.51.2
+python-dotenv==1.0.1
 
-# =============================
-# VISUALIZATION LIBRARIES
-# =============================
-matplotlib==3.8.2                  # Static plotting and charts
-seaborn==0.13.0                    # Statistical data visualization
-plotly==5.18.0                     # Interactive charts and dashboards
-dash>=2.14.0                        # Interactive web applications
-dash-bootstrap-components>=1.5.0    # Bootstrap components for Dash
-plotly-dash>=2.14.0                 # Dash integration for interactive dashboards
+# Minimal LangChain (core only)
+langchain-core==0.2.38
+langchain-openai==0.1.25
+langsmith==0.1.129
 
-# =============================
-# MACHINE LEARNING & RAG (OPTIMIZED FOR VERCEL)
-# =============================
-# Removed large ML packages to fit 250MB Vercel limit:
-# - scikit-learn (large ML library - not essential for core functionality)
-# - scipy (large scientific computing - sklearn dependency)
-# - chromadb (large vector database - not essential for basic functionality)
-# - faiss-cpu (large similarity search - not essential)
+# Essential data processing
+pandas==2.1.4
+numpy==1.26.2
 
-langchain-openai==0.1.25           # LangChain OpenAI integration
-langchain-core==0.2.38             # LangChain core functionality
-langchain==0.2.16                  # LangChain framework for RAG
-langchain-community==0.2.16        # LangChain community integrations (Chroma, etc)
-langchain-chroma>=0.1.0             # Updated Chroma vector store package
-langchain-cli==0.0.31              # LangChain CLI for deployment
-langsmith==0.1.129                 # LangSmith tracing and monitoring
-langgraph==0.2.34                  # LangGraph for deployment compatibility
-langgraph-sdk>=0.1.0               # LangGraph SDK for deployment
+# Basic utilities
+requests==2.31.0
+typing-extensions==4.9.0
 
-# =============================
-# WEB SCRAPING
-# =============================
-requests==2.31.0                   # HTTP library for web requests
-beautifulsoup4==4.12.3             # HTML/XML parser for web scraping
-lxml==5.1.0                        # XML/HTML parser (BeautifulSoup backend)
-
-# =============================
-# PDF GENERATION
-# =============================
-reportlab==4.0.9                   # PDF generation and manipulation
-
-# =============================
-# IMAGE PROCESSING
-# =============================
-Pillow==10.1.0                     # Image processing (matplotlib dependency)
-
-# =============================
-# JUPYTER SUPPORT (OPTIONAL)
-# =============================
-ipython==8.18.1                    # Enhanced Python shell
-jupyter==1.0.0                     # Jupyter notebook support (optional)
-
-# =============================
-# DEVELOPMENT & UTILITIES
-# =============================
-typing-extensions==4.9.0           # Extended type hints
-python-dateutil==2.8.2             # Date/time utilities (pandas dependency)
-pytz==2023.3.post1                 # Timezone handling (pandas dependency)
-
-# =============================
-# SECURITY & ENCODING
-# =============================
-urllib3==2.1.0                     # HTTP library with security features
-certifi==2023.11.17                # SSL certificate bundle
-charset-normalizer==3.3.2          # Character encoding detection
-
-# =============================
-# PERFORMANCE & COMPATIBILITY
-# =============================
-six==1.16.0                        # Python 2/3 compatibility utilities
-packaging==23.2                    # Package version handling
-
-# =============================
-# INSTALLATION NOTES
-# =============================
-# Install all dependencies with:
-#   pip install -r requirements.txt
-#
-# For development environment:
-#   pip install -r requirements.txt
-#   pip install pytest black flake8  # Additional dev tools
-#
-# For production deployment:
-#   pip install -r requirements.txt --no-dev
-#
-# Minimum Python version: 3.8+
-# Recommended Python version: 3.11+
-#
-# Platform compatibility:
-#   - Windows 10/11
-#   - macOS 10.15+
-#   - Linux (Ubuntu 20.04+, CentOS 8+)
-#
-# Memory requirements:
-#   - Minimum: 2GB RAM
-#   - Recommended: 4GB+ RAM (for large dataset processing)
-#
-# GPU support:
-#   - Not required (CPU-only processing)
-#   - Optional: For faster ML model training
+# Remove heavy packages:
+# - chainlit (not needed for API)
+# - plotly/dash (visualization - too heavy)
+# - langchain-community (has chromadb dependency)
+# - jupyter/ipython (development only)
+# - beautifulsoup4/lxml (web scraping - not essential)
+# - reportlab (PDF generation - not essential)
+# - matplotlib/seaborn/pillow (visualization - too heavy)
