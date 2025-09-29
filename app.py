@@ -2904,6 +2904,35 @@ async def main(message: cl.Message):
     # =============================
     # ROUTE 8: INTERACTIVE DASHBOARDS
     # =============================
+    # Handle general "interactive" request - default to scatter plot dashboard
+    if user_input.strip() == "interactive" or (user_input.strip() == "proceed" and thinking_msg.content and "interactive" in thinking_msg.content):
+        msg = cl.Message(content="🎯 Creating interactive scatter plot dashboard...")
+        await msg.send()
+
+        html_content = create_interactive_scatter(df, "Interactive Startup Analysis")
+        await msg.remove()
+
+        # Send the interactive chart as HTML
+        await cl.Message(
+            content="## 🎯 Interactive Startup Dashboard\n\n"
+                   "**Features:**\n"
+                   "- 🖱️ Hover for detailed startup information\n"
+                   "- 🔍 Zoom and pan to explore data\n"
+                   "- 📊 Size indicates market size, color shows success/failure\n\n"
+        ).send()
+
+        # Create an HTML file and send it
+        with open("interactive_dashboard.html", "w") as f:
+            f.write(html_content)
+
+        dashboard_file = cl.File(
+            path="interactive_dashboard.html",
+            name="Interactive Dashboard",
+            display="inline"
+        )
+        await dashboard_file.send()
+        return
+
     if "interactive" in user_input and ("dashboard" in user_input or "scatter" in user_input):
         msg = cl.Message(content="🎯 Creating interactive scatter plot dashboard...")
         await msg.send()
