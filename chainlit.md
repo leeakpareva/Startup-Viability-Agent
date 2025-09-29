@@ -47,6 +47,12 @@ Focus on macroeconomic analysis, regional factors, and policy impacts
 economist mode
 ```
 
+### 💰 **Company Analyst Mode**
+Focus on financial health, profitability analysis, and unit economics
+```
+company analyst
+```
+
 ---
 
 ## 🎯 Three Ways to Use NAVADA
@@ -113,6 +119,51 @@ latest trends in fintech
 what's happening with blockchain
 current venture capital news
 ```
+
+## 🕸️ **Web Scraping Tool**
+
+Extract data from any website using CSS selectors:
+
+### Basic Usage:
+```
+scrape https://example.com
+```
+**Default:** Extracts all paragraph text from the webpage
+
+### Advanced Usage with CSS Selectors:
+```
+scrape https://news.site h1,h2              # Extract headlines
+scrape https://startup.com .price           # Extract elements with 'price' class
+scrape https://blog.com article p           # Extract paragraphs from articles
+scrape https://company.com #contact         # Extract element with 'contact' ID
+```
+
+### Real-World Examples:
+```
+scrape https://techcrunch.com h2.post__title   # TechCrunch headlines
+scrape https://ycombinator.com .company        # Y Combinator companies
+scrape https://crunchbase.com .funding-info    # Funding information
+```
+
+### Supported Selectors:
+- **Tags:** `h1`, `h2`, `p`, `div`, `span`, `a`
+- **Classes:** `.classname`, `.multi.class`
+- **IDs:** `#uniqueid`
+- **Attributes:** `[data-price]`, `[href*="funding"]`
+- **Combinations:** `div.article p`, `h1, h2, h3`
+
+### Use Cases:
+- 📊 **Market Research:** Scrape competitor pricing, product features
+- 📰 **News Monitoring:** Extract latest industry headlines and trends
+- 💰 **Funding Data:** Gather investment rounds and startup announcements
+- 🏢 **Company Info:** Extract contact details, team information
+- 📈 **Financial Data:** Pull revenue figures, growth metrics from reports
+
+### Tips for Success:
+- 🔍 **Inspect Element** in your browser to find the right CSS selectors
+- 🎯 **Be Specific** - use class names or IDs for better targeting
+- 🔄 **Try Multiple Selectors** - combine different elements with commas
+- ⚡ **Test First** - start with simple selectors like `h1` or `p`
 
 ## 🎤 **Voice Control**
 ```
@@ -247,6 +298,11 @@ portfolio analysis
 - "How do interest rates affect our funding strategy?"
 - "Compare regional opportunities across UK cities"
 
+**For Company Analysts:**
+- "Analyze company profitability and unit economics"
+- "Show me break-even analysis and cash runway"
+- "Compare our margins against industry benchmarks"
+
 **For Financial Analysis:**
 - "Enter math mode and calculate 10x return in 5 years"
 - "Project our growth to $1M ARR with current rates"
@@ -376,7 +432,9 @@ Use these in your natural language requests:
 - `assess idea` - Interactive guidance
 - `math mode` - Enter mathematical analysis mode
 - `macro analysis` - UK economic impact assessment
+- `company analysis` - Financial health and profitability assessment
 - `search [topic]` - Real-time market data
+- `scrape [url]` - Extract data from websites
 - `voice on/off` - Toggle voice responses
 
 ### Ask NAVADA:

@@ -228,6 +228,31 @@ PERSONAS = {
             "What market failures justify government intervention in this sector?"
         ],
         "charts": ["uk_economic_indicators", "inflation_analysis", "sector_performance", "regional_economics"]
+    },
+    "company_analyst": {
+        "name": "Company Analysis Mode",
+        "system_prompt": (
+            "You are a senior financial analyst specializing in company valuation, profitability analysis, and financial health assessment. "
+            "Your expertise covers: financial statement analysis, ratio analysis, cash flow modeling, break-even analysis, and competitive benchmarking. "
+            "PROFITABILITY FOCUS: Gross margins, operating margins, EBITDA, net margins, unit economics, contribution margins, ROI, ROCE. "
+            "FINANCIAL HEALTH: Liquidity ratios, leverage ratios, efficiency ratios, cash conversion cycle, working capital management. "
+            "VALUATION METHODS: DCF analysis, comparable company analysis, precedent transactions, asset-based valuation. "
+            "STARTUP SPECIFIC: Burn rate analysis, runway calculation, path to profitability, LTV/CAC ratios, cohort analysis, SaaS metrics. "
+            "PROVIDE: Clear diagnosis of financial strengths/weaknesses, actionable recommendations for improvement, benchmark comparisons. "
+            "Use financial modeling best practices and industry-standard metrics. Be direct about red flags and opportunities."
+        ),
+        "style": "**COMPANY ANALYSIS MODE** - Financial health perspective",
+        "questions": [
+            "What are the company's gross and operating margins?",
+            "How efficient is the cash conversion cycle?",
+            "What's the break-even point and contribution margin?",
+            "How does profitability compare to industry benchmarks?",
+            "What's the working capital requirement?",
+            "Is the company over-leveraged or under-capitalized?",
+            "What are the key profitability drivers and risks?",
+            "How sustainable is the current business model?"
+        ],
+        "charts": ["profitability_analysis", "cash_flow_waterfall", "margin_trends", "break_even_chart"]
     }
 }
 
@@ -1271,6 +1296,453 @@ def plot_uk_economic_indicators(df_in: pd.DataFrame):
     plt.tight_layout()
 
     return fig_to_bytes(fig)
+
+def plot_profitability_analysis(analysis_data: dict):
+    """Create profitability analysis charts"""
+
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+
+    # Margin Waterfall
+    ax1 = axes[0, 0]
+    margins = ['Revenue', 'COGS', 'Gross Profit', 'OpEx', 'Operating Profit', 'Net Profit']
+    values = [100, -40, 60, -35, 25, 18]
+    colors = ['green', 'red', 'green', 'red', 'green', 'darkgreen']
+
+    ax1.bar(margins, values, color=colors, alpha=0.7)
+    ax1.axhline(y=0, color='black', linestyle='-', linewidth=0.5)
+    ax1.set_title('Profitability Waterfall', fontweight='bold')
+    ax1.set_ylabel('% of Revenue')
+    ax1.tick_params(axis='x', rotation=45)
+
+    # Unit Economics
+    ax2 = axes[0, 1]
+    ltv_cac = analysis_data.get('ltv_cac_ratio', 3.0)
+    benchmark = 3.0
+
+    bars = ax2.bar(['LTV/CAC Ratio', 'Benchmark'], [ltv_cac, benchmark],
+                   color=['green' if ltv_cac > benchmark else 'red', 'gray'])
+    ax2.axhline(y=3, color='blue', linestyle='--', alpha=0.5, label='Healthy Threshold')
+    ax2.set_title('Unit Economics Health', fontweight='bold')
+    ax2.set_ylabel('Ratio')
+    ax2.legend()
+
+    # Add value labels
+    for bar in bars:
+        height = bar.get_height()
+        ax2.text(bar.get_x() + bar.get_width()/2., height + 0.1,
+                f'{height:.1f}', ha='center', va='bottom')
+
+    # Break-even Analysis
+    ax3 = axes[1, 0]
+    units = np.linspace(0, 2000, 100)
+    fixed_costs = 50000
+    variable_cost = 30
+    price = 100
+
+    revenue_line = units * price
+    total_cost_line = fixed_costs + (units * variable_cost)
+
+    ax3.plot(units, revenue_line, 'g-', label='Revenue', linewidth=2)
+    ax3.plot(units, total_cost_line, 'r-', label='Total Cost', linewidth=2)
+    ax3.fill_between(units, revenue_line, total_cost_line,
+                     where=(revenue_line > total_cost_line), alpha=0.3, color='green', label='Profit Zone')
+    ax3.fill_between(units, revenue_line, total_cost_line,
+                     where=(revenue_line <= total_cost_line), alpha=0.3, color='red', label='Loss Zone')
+
+    # Mark break-even point
+    break_even_units = fixed_costs / (price - variable_cost)
+    ax3.plot(break_even_units, break_even_units * price, 'ko', markersize=8)
+    ax3.annotate(f'Break-even: {break_even_units:.0f} units',
+                xy=(break_even_units, break_even_units * price),
+                xytext=(break_even_units + 200, break_even_units * price),
+                arrowprops=dict(arrowstyle='->'))
+
+    ax3.set_xlabel('Units Sold')
+    ax3.set_ylabel('Revenue/Cost ($)')
+    ax3.set_title('Break-even Analysis', fontweight='bold')
+    ax3.legend()
+    ax3.grid(True, alpha=0.3)
+
+    # Cash Runway
+    ax4 = axes[1, 1]
+    months = np.arange(0, 25)
+    cash_balance = 500000
+    monthly_burn = 50000
+
+    cash_projection = [cash_balance - (monthly_burn * m) for m in months]
+    cash_projection = [max(0, c) for c in cash_projection]  # Can't go below 0
+
+    ax4.fill_between(months, 0, cash_projection, alpha=0.3, color='blue')
+    ax4.plot(months, cash_projection, 'b-', linewidth=2)
+    ax4.axhline(y=100000, color='orange', linestyle='--', label='Danger Zone')
+    ax4.axhline(y=0, color='red', linestyle='--', label='Out of Cash')
+
+    # Mark runway
+    runway = cash_balance / monthly_burn
+    ax4.axvline(x=runway, color='green', linestyle='--', alpha=0.7, label=f'Runway: {runway:.0f} months')
+
+    ax4.set_xlabel('Months')
+    ax4.set_ylabel('Cash Balance ($)')
+    ax4.set_title('Cash Runway Projection', fontweight='bold')
+    ax4.legend()
+    ax4.grid(True, alpha=0.3)
+
+    plt.suptitle('Company Financial Analysis Dashboard', fontsize=16, fontweight='bold')
+    plt.tight_layout()
+
+    return fig_to_bytes(fig)
+
+def plot_margin_trends(historical_data: list):
+    """Plot historical margin trends"""
+
+    fig, ax = plt.subplots(figsize=(12, 6))
+
+    quarters = [d['quarter'] for d in historical_data]
+    gross_margins = [d['gross_margin'] for d in historical_data]
+    operating_margins = [d['operating_margin'] for d in historical_data]
+    net_margins = [d['net_margin'] for d in historical_data]
+
+    ax.plot(quarters, gross_margins, 'g-', marker='o', linewidth=2, label='Gross Margin')
+    ax.plot(quarters, operating_margins, 'b-', marker='s', linewidth=2, label='Operating Margin')
+    ax.plot(quarters, net_margins, 'r-', marker='^', linewidth=2, label='Net Margin')
+
+    ax.fill_between(range(len(quarters)), gross_margins, alpha=0.1, color='green')
+    ax.fill_between(range(len(quarters)), operating_margins, alpha=0.1, color='blue')
+    ax.fill_between(range(len(quarters)), net_margins, alpha=0.1, color='red')
+
+    ax.set_xlabel('Quarter')
+    ax.set_ylabel('Margin (%)')
+    ax.set_title('Margin Trends Over Time', fontweight='bold')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
+    # Add trend lines
+    z_gross = np.polyfit(range(len(quarters)), gross_margins, 1)
+    p_gross = np.poly1d(z_gross)
+    ax.plot(range(len(quarters)), p_gross(range(len(quarters))), 'g--', alpha=0.5)
+
+    plt.tight_layout()
+    return fig_to_bytes(fig)
+
+def plot_cash_flow_waterfall(cash_data: dict):
+    """Create cash flow waterfall chart"""
+
+    fig, ax = plt.subplots(figsize=(12, 6))
+
+    categories = ['Starting Cash', 'Operations', 'Investing', 'Financing', 'Ending Cash']
+    values = [
+        cash_data.get('starting_cash', 500000),
+        cash_data.get('cash_from_operations', -200000),
+        cash_data.get('cash_from_investing', -50000),
+        cash_data.get('cash_from_financing', 300000),
+        0  # Will calculate
+    ]
+
+    # Calculate ending cash
+    values[4] = sum(values[:4])
+
+    # Create cumulative values for positioning
+    cumulative = [values[0]]
+    for i in range(1, len(values)-1):
+        cumulative.append(cumulative[-1] + values[i])
+    cumulative.append(values[4])
+
+    # Plot bars
+    colors = ['blue', 'red' if values[1] < 0 else 'green',
+              'red' if values[2] < 0 else 'green',
+              'green' if values[3] > 0 else 'red', 'blue']
+
+    for i, (cat, val, cum) in enumerate(zip(categories, values, cumulative)):
+        if i == 0 or i == len(categories) - 1:
+            # Starting and ending cash - full bars
+            ax.bar(cat, val, color=colors[i], alpha=0.7)
+        else:
+            # Flow bars - positioned relative to cumulative
+            bottom = cum - val if val > 0 else cum
+            height = abs(val)
+            ax.bar(cat, height, bottom=bottom, color=colors[i], alpha=0.7)
+
+        # Add value labels
+        ax.text(i, cum + 10000, f'${val:,.0f}', ha='center', va='bottom')
+
+    ax.set_title('Cash Flow Waterfall Analysis', fontweight='bold')
+    ax.set_ylabel('Cash ($)')
+    ax.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    return fig_to_bytes(fig)
+
+def plot_break_even_chart(financials: dict):
+    """Create detailed break-even analysis chart"""
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+
+    # Break-even line chart
+    units = np.linspace(0, 2000, 100)
+    fixed_costs = financials.get('fixed_costs', 100000)
+    variable_cost_per_unit = financials.get('variable_cost_per_unit', 40)
+    price_per_unit = financials.get('price_per_unit', 100)
+
+    revenue = units * price_per_unit
+    total_costs = fixed_costs + (units * variable_cost_per_unit)
+    profit = revenue - total_costs
+
+    ax1.plot(units, revenue, 'g-', linewidth=2, label='Revenue')
+    ax1.plot(units, total_costs, 'r-', linewidth=2, label='Total Costs')
+    ax1.fill_between(units, revenue, total_costs, where=(revenue > total_costs),
+                     alpha=0.3, color='green', label='Profit Zone')
+    ax1.fill_between(units, revenue, total_costs, where=(revenue <= total_costs),
+                     alpha=0.3, color='red', label='Loss Zone')
+
+    # Mark break-even point
+    break_even_units = fixed_costs / (price_per_unit - variable_cost_per_unit)
+    break_even_revenue = break_even_units * price_per_unit
+
+    ax1.plot(break_even_units, break_even_revenue, 'ko', markersize=8)
+    ax1.annotate(f'Break-even\n{break_even_units:.0f} units\n${break_even_revenue:,.0f}',
+                xy=(break_even_units, break_even_revenue),
+                xytext=(break_even_units + 300, break_even_revenue),
+                arrowprops=dict(arrowstyle='->'))
+
+    ax1.set_xlabel('Units Sold')
+    ax1.set_ylabel('Amount ($)')
+    ax1.set_title('Break-even Analysis', fontweight='bold')
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+
+    # Sensitivity analysis
+    scenarios = ['Conservative', 'Base Case', 'Optimistic']
+    price_variations = [price_per_unit * 0.9, price_per_unit, price_per_unit * 1.1]
+    break_even_scenarios = [fixed_costs / (p - variable_cost_per_unit) for p in price_variations]
+
+    bars = ax2.bar(scenarios, break_even_scenarios, color=['red', 'orange', 'green'], alpha=0.7)
+    ax2.set_ylabel('Break-even Units')
+    ax2.set_title('Break-even Sensitivity Analysis', fontweight='bold')
+
+    # Add value labels
+    for bar, value in zip(bars, break_even_scenarios):
+        ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 20,
+                f'{value:.0f}', ha='center', va='bottom')
+
+    plt.tight_layout()
+    return fig_to_bytes(fig)
+
+# =============================
+# COMPANY ANALYSIS MODULE
+# =============================
+
+class CompanyAnalyzer:
+    """Comprehensive company financial analysis"""
+
+    def __init__(self):
+        self.industry_benchmarks = {
+            'SaaS': {'gross_margin': 75, 'operating_margin': 20, 'ltv_cac': 3.0},
+            'E-commerce': {'gross_margin': 40, 'operating_margin': 10, 'ltv_cac': 2.5},
+            'Marketplace': {'gross_margin': 60, 'operating_margin': 15, 'ltv_cac': 4.0},
+            'Hardware': {'gross_margin': 35, 'operating_margin': 8, 'ltv_cac': 2.0},
+            'Services': {'gross_margin': 50, 'operating_margin': 12, 'ltv_cac': 2.8},
+            'FinTech': {'gross_margin': 65, 'operating_margin': 18, 'ltv_cac': 3.5}
+        }
+
+    def analyze_profitability(self, financials: dict) -> dict:
+        """Complete profitability analysis"""
+
+        # Extract key metrics
+        revenue = financials.get('revenue', 0)
+        cogs = financials.get('cogs', 0)
+        opex = financials.get('opex', 0)
+        sales_marketing = financials.get('sales_marketing', 0)
+        rd_expense = financials.get('rd_expense', 0)
+        admin_expense = financials.get('admin_expense', 0)
+
+        # Calculate margins
+        gross_profit = revenue - cogs
+        gross_margin = (gross_profit / revenue * 100) if revenue > 0 else 0
+
+        operating_profit = gross_profit - opex
+        operating_margin = (operating_profit / revenue * 100) if revenue > 0 else 0
+
+        ebitda = operating_profit + financials.get('depreciation', 0)
+        ebitda_margin = (ebitda / revenue * 100) if revenue > 0 else 0
+
+        net_profit = operating_profit - financials.get('interest', 0) - financials.get('tax', 0)
+        net_margin = (net_profit / revenue * 100) if revenue > 0 else 0
+
+        return {
+            'gross_profit': gross_profit,
+            'gross_margin': gross_margin,
+            'operating_profit': operating_profit,
+            'operating_margin': operating_margin,
+            'ebitda': ebitda,
+            'ebitda_margin': ebitda_margin,
+            'net_profit': net_profit,
+            'net_margin': net_margin,
+            'profit_health': self._assess_profit_health(gross_margin, operating_margin, net_margin)
+        }
+
+    def analyze_unit_economics(self, metrics: dict) -> dict:
+        """Analyze unit-level profitability"""
+
+        # Customer economics
+        cac = metrics.get('customer_acquisition_cost', 100)
+        ltv = metrics.get('lifetime_value', 300)
+        ltv_cac_ratio = ltv / cac if cac > 0 else 0
+
+        # Unit contribution
+        revenue_per_unit = metrics.get('revenue_per_unit', 50)
+        variable_cost_per_unit = metrics.get('variable_cost_per_unit', 20)
+        contribution_margin = revenue_per_unit - variable_cost_per_unit
+        contribution_margin_pct = (contribution_margin / revenue_per_unit * 100) if revenue_per_unit > 0 else 0
+
+        # Payback period
+        monthly_revenue_per_customer = metrics.get('monthly_revenue', 100)
+        payback_months = cac / monthly_revenue_per_customer if monthly_revenue_per_customer > 0 else 999
+
+        return {
+            'ltv': ltv,
+            'cac': cac,
+            'ltv_cac_ratio': ltv_cac_ratio,
+            'contribution_margin': contribution_margin,
+            'contribution_margin_pct': contribution_margin_pct,
+            'payback_months': payback_months,
+            'unit_economics_health': 'Strong' if ltv_cac_ratio > 3 else 'Moderate' if ltv_cac_ratio > 1 else 'Weak'
+        }
+
+    def analyze_cash_flow(self, cash_data: dict) -> dict:
+        """Analyze cash flow and runway"""
+
+        # Operating cash flow
+        cash_from_operations = cash_data.get('cash_from_operations', -50000)
+        cash_from_investing = cash_data.get('cash_from_investing', -20000)
+        cash_from_financing = cash_data.get('cash_from_financing', 100000)
+
+        # Net cash flow
+        net_cash_flow = cash_from_operations + cash_from_investing + cash_from_financing
+
+        # Burn rate and runway
+        monthly_burn = -cash_from_operations / 12 if cash_from_operations < 0 else 0
+        cash_balance = cash_data.get('cash_balance', 500000)
+        runway_months = cash_balance / monthly_burn if monthly_burn > 0 else 999
+
+        # Cash conversion cycle
+        dso = cash_data.get('days_sales_outstanding', 45)
+        dio = cash_data.get('days_inventory_outstanding', 30)
+        dpo = cash_data.get('days_payables_outstanding', 30)
+        cash_conversion_cycle = dso + dio - dpo
+
+        return {
+            'operating_cash_flow': cash_from_operations,
+            'net_cash_flow': net_cash_flow,
+            'monthly_burn': monthly_burn,
+            'runway_months': runway_months,
+            'cash_conversion_cycle': cash_conversion_cycle,
+            'cash_efficiency': 'Efficient' if cash_conversion_cycle < 30 else 'Moderate' if cash_conversion_cycle < 60 else 'Inefficient'
+        }
+
+    def calculate_break_even(self, financials: dict) -> dict:
+        """Calculate break-even analysis"""
+
+        fixed_costs = financials.get('fixed_costs', 100000)
+        variable_cost_ratio = financials.get('variable_cost_ratio', 0.4)
+        price_per_unit = financials.get('price_per_unit', 100)
+        variable_cost_per_unit = price_per_unit * variable_cost_ratio
+
+        # Break-even units
+        contribution_per_unit = price_per_unit - variable_cost_per_unit
+        break_even_units = fixed_costs / contribution_per_unit if contribution_per_unit > 0 else 999999
+
+        # Break-even revenue
+        break_even_revenue = break_even_units * price_per_unit
+
+        # Margin of safety
+        current_revenue = financials.get('current_revenue', 150000)
+        margin_of_safety = ((current_revenue - break_even_revenue) / current_revenue * 100) if current_revenue > 0 else -100
+
+        return {
+            'break_even_units': break_even_units,
+            'break_even_revenue': break_even_revenue,
+            'contribution_per_unit': contribution_per_unit,
+            'margin_of_safety': margin_of_safety,
+            'months_to_break_even': self._calculate_months_to_break_even(financials)
+        }
+
+    def benchmark_performance(self, company_metrics: dict, industry: str) -> dict:
+        """Compare against industry benchmarks"""
+
+        benchmarks = self.industry_benchmarks.get(
+            industry,
+            self.industry_benchmarks['Services']  # Default
+        )
+
+        comparisons = {
+            'gross_margin': {
+                'company': company_metrics.get('gross_margin', 0),
+                'industry': benchmarks['gross_margin'],
+                'delta': company_metrics.get('gross_margin', 0) - benchmarks['gross_margin'],
+                'performance': 'Above' if company_metrics.get('gross_margin', 0) > benchmarks['gross_margin'] else 'Below'
+            },
+            'operating_margin': {
+                'company': company_metrics.get('operating_margin', 0),
+                'industry': benchmarks['operating_margin'],
+                'delta': company_metrics.get('operating_margin', 0) - benchmarks['operating_margin'],
+                'performance': 'Above' if company_metrics.get('operating_margin', 0) > benchmarks['operating_margin'] else 'Below'
+            },
+            'ltv_cac': {
+                'company': company_metrics.get('ltv_cac_ratio', 0),
+                'industry': benchmarks['ltv_cac'],
+                'delta': company_metrics.get('ltv_cac_ratio', 0) - benchmarks['ltv_cac'],
+                'performance': 'Above' if company_metrics.get('ltv_cac_ratio', 0) > benchmarks['ltv_cac'] else 'Below'
+            }
+        }
+
+        # Overall rating
+        above_count = sum(1 for metric in comparisons.values() if metric['performance'] == 'Above')
+        overall_rating = 'Outperforming' if above_count >= 2 else 'Underperforming'
+
+        return {
+            'comparisons': comparisons,
+            'overall_rating': overall_rating,
+            'recommendations': self._generate_recommendations(comparisons)
+        }
+
+    def _assess_profit_health(self, gross, operating, net):
+        """Assess overall profitability health"""
+        if net > 10 and operating > 15 and gross > 50:
+            return "Excellent"
+        elif net > 0 and operating > 5 and gross > 30:
+            return "Good"
+        elif net > -10 and gross > 20:
+            return "Moderate"
+        else:
+            return "Poor"
+
+    def _calculate_months_to_break_even(self, financials):
+        """Calculate months to reach break-even"""
+        current_loss = financials.get('monthly_loss', 50000)
+        growth_rate = financials.get('growth_rate', 0.1)
+
+        if current_loss <= 0:  # Already profitable
+            return 0
+
+        months = 0
+        while current_loss > 0 and months < 60:  # Max 60 months
+            current_loss *= (1 - growth_rate)
+            months += 1
+
+        return months if months < 60 else 999
+
+    def _generate_recommendations(self, comparisons):
+        """Generate improvement recommendations"""
+        recommendations = []
+
+        if comparisons['gross_margin']['delta'] < 0:
+            recommendations.append("Focus on pricing optimization or reducing COGS")
+        if comparisons['operating_margin']['delta'] < 0:
+            recommendations.append("Improve operational efficiency and reduce overhead")
+        if comparisons['ltv_cac']['delta'] < 0:
+            recommendations.append("Optimize customer acquisition channels or increase retention")
+
+        return recommendations
 
 # =============================
 # INTERACTIVE DASHBOARD MODULE
@@ -5557,6 +6029,222 @@ Look for startups with larger radar areas and balanced performance across dimens
                    "• Type **'economist mode'** for UK economic analysis\n\n"
                    "**Or continue in current mode - what would you like to analyze?**"
         ).send()
+        return
+
+    # =============================
+    # ROUTE: COMPANY ANALYST MODE
+    # =============================
+    if "company analyst" in user_input or "company analysis" in user_input or "financial analysis" in user_input:
+        await thinking_msg.remove()
+
+        cl.user_session.set("persona", "company_analyst")
+        persona = get_current_persona()
+
+        await cl.Message(
+            content=f"{persona['style']}\n\n"
+                    "I'm now analyzing from a **company financial health perspective**, focusing on profitability, unit economics, and financial sustainability.\n\n"
+                    "**Financial Analysis Focus:**\n"
+                    "• Profitability: Gross, operating, and net margins\n"
+                    "• Unit Economics: LTV/CAC ratios, payback periods\n"
+                    "• Cash Flow: Runway analysis, working capital\n"
+                    "• Break-even: Path to profitability analysis\n"
+                    "• Benchmarking: Industry performance comparisons\n\n"
+                    "**Analysis Tools:**\n"
+                    "• Type **'analyze company'** - Comprehensive financial analysis\n"
+                    "• Type **'profitability analysis'** - Full margin and profitability assessment\n"
+                    "• Type **'unit economics'** - Customer economics and LTV/CAC analysis\n"
+                    "• Type **'cash flow analysis'** - Runway and cash management assessment\n"
+                    "• Type **'break even analysis'** - Path to profitability calculation\n\n"
+                    "**Ready to dive deep into financial health?**"
+        ).send()
+        return
+
+    # =============================
+    # ROUTE: COMPANY ANALYSIS EXECUTION
+    # =============================
+    if "analyze company" in user_input or "profitability analysis" in user_input or "financial analysis" in user_input:
+        await thinking_msg.remove()
+
+        analyzer = CompanyAnalyzer()
+
+        await cl.Message(
+            content="## 💼 Company Financial Analysis\n\n"
+                    "I'll perform a comprehensive profitability and financial health analysis.\n\n"
+                    "Choose analysis type:\n"
+                    "1. **Quick Analysis** - Key metrics only\n"
+                    "2. **Full Analysis** - Complete financial deep dive\n"
+                    "3. **Upload Financials** - Analyze from CSV/Excel"
+        ).send()
+
+        analysis_type = await cl.AskUserMessage(content="Enter choice (1/2/3):").send()
+
+        if "2" in analysis_type.get('output', '') or "full" in analysis_type.get('output', '').lower():
+            # Full Analysis
+            await cl.Message(content="### 📊 Full Company Analysis\n\nI'll need detailed financial information.").send()
+
+            # Collect comprehensive data
+            company_name = await cl.AskUserMessage(content="Company name:").send()
+            industry = await cl.AskUserMessage(content="Industry (SaaS/E-commerce/Marketplace/FinTech/Services):").send()
+
+            # Revenue metrics
+            revenue = await ask_float("Annual revenue ($ millions)", 10.0)
+            growth_rate = await ask_float("Revenue growth rate (%)", 20.0)
+
+            # Cost structure
+            cogs_pct = await ask_float("COGS as % of revenue", 40.0)
+            opex_pct = await ask_float("Operating expenses as % of revenue", 35.0)
+            sales_marketing_pct = await ask_float("Sales & Marketing as % of revenue", 15.0)
+
+            # Unit economics
+            cac = await ask_float("Customer Acquisition Cost ($)", 100.0)
+            ltv = await ask_float("Customer Lifetime Value ($)", 400.0)
+            monthly_churn = await ask_float("Monthly churn rate (%)", 5.0)
+
+            # Cash metrics
+            cash_balance = await ask_float("Current cash balance ($ millions)", 5.0)
+            monthly_burn = await ask_float("Monthly burn rate ($ thousands)", 200.0)
+
+            # Prepare financial data
+            revenue_amount = revenue * 1_000_000
+            financials = {
+                'revenue': revenue_amount,
+                'cogs': revenue_amount * (cogs_pct / 100),
+                'opex': revenue_amount * (opex_pct / 100),
+                'sales_marketing': revenue_amount * (sales_marketing_pct / 100),
+                'fixed_costs': revenue_amount * 0.2,
+                'variable_cost_ratio': cogs_pct / 100,
+                'price_per_unit': 100,
+                'current_revenue': revenue_amount / 12  # Monthly
+            }
+
+            metrics = {
+                'customer_acquisition_cost': cac,
+                'lifetime_value': ltv,
+                'monthly_revenue': ltv / 24,  # Assume 24-month lifetime
+                'revenue_per_unit': 100,
+                'variable_cost_per_unit': 40
+            }
+
+            cash_data = {
+                'cash_from_operations': -monthly_burn * 1000 * 12,
+                'cash_from_investing': -revenue_amount * 0.05,
+                'cash_from_financing': 0,
+                'cash_balance': cash_balance * 1_000_000,
+                'days_sales_outstanding': 45,
+                'days_inventory_outstanding': 0 if industry.get('output', '') == 'SaaS' else 30,
+                'days_payables_outstanding': 30
+            }
+
+            # Run analyses
+            msg = cl.Message(content="🔍 Analyzing financial health...")
+            await msg.send()
+
+            profitability = analyzer.analyze_profitability(financials)
+            unit_economics = analyzer.analyze_unit_economics(metrics)
+            cash_flow = analyzer.analyze_cash_flow(cash_data)
+            break_even = analyzer.calculate_break_even(financials)
+
+            # Benchmark analysis
+            company_metrics = {
+                'gross_margin': profitability['gross_margin'],
+                'operating_margin': profitability['operating_margin'],
+                'ltv_cac_ratio': unit_economics['ltv_cac_ratio']
+            }
+            benchmarks = analyzer.benchmark_performance(
+                company_metrics,
+                industry.get('output', 'Services')
+            )
+
+            # Generate visualization
+            analysis_data = {
+                'ltv_cac_ratio': unit_economics['ltv_cac_ratio']
+            }
+            chart = plot_profitability_analysis(analysis_data)
+
+            await msg.remove()
+
+            # Display comprehensive results
+            content = f"""
+## 📊 Financial Analysis: {company_name.get('output', 'Company')}
+
+### 💰 Profitability Analysis
+- **Gross Margin:** {profitability['gross_margin']:.1f}% {'✅' if profitability['gross_margin'] > 50 else '⚠️' if profitability['gross_margin'] > 30 else '❌'}
+- **Operating Margin:** {profitability['operating_margin']:.1f}% {'✅' if profitability['operating_margin'] > 15 else '⚠️' if profitability['operating_margin'] > 0 else '❌'}
+- **EBITDA Margin:** {profitability['ebitda_margin']:.1f}%
+- **Net Margin:** {profitability['net_margin']:.1f}%
+- **Overall Health:** {profitability['profit_health']}
+
+### 📈 Unit Economics
+- **LTV/CAC Ratio:** {unit_economics['ltv_cac_ratio']:.2f} {'✅ Healthy' if unit_economics['ltv_cac_ratio'] > 3 else '⚠️ Concerning' if unit_economics['ltv_cac_ratio'] > 1 else '❌ Unsustainable'}
+- **Payback Period:** {unit_economics['payback_months']:.1f} months
+- **Contribution Margin:** {unit_economics['contribution_margin_pct']:.1f}%
+- **Unit Economics:** {unit_economics['unit_economics_health']}
+
+### 💵 Cash Flow & Runway
+- **Monthly Burn:** ${cash_flow['monthly_burn']:,.0f}
+- **Runway:** {cash_flow['runway_months']:.1f} months {'✅' if cash_flow['runway_months'] > 18 else '⚠️' if cash_flow['runway_months'] > 12 else '❌'}
+- **Cash Conversion Cycle:** {cash_flow['cash_conversion_cycle']:.0f} days
+- **Cash Efficiency:** {cash_flow['cash_efficiency']}
+
+### 🎯 Break-even Analysis
+- **Break-even Revenue:** ${break_even['break_even_revenue']:,.0f}
+- **Margin of Safety:** {break_even['margin_of_safety']:.1f}%
+- **Months to Break-even:** {break_even['months_to_break_even'] if break_even['months_to_break_even'] < 60 else '60+'}
+
+### 📊 Industry Benchmarks ({industry.get('output', 'Services')})
+- **Gross Margin:** Company {benchmarks['comparisons']['gross_margin']['company']:.1f}% vs Industry {benchmarks['comparisons']['gross_margin']['industry']:.1f}% ({benchmarks['comparisons']['gross_margin']['performance']})
+- **Operating Margin:** Company {benchmarks['comparisons']['operating_margin']['company']:.1f}% vs Industry {benchmarks['comparisons']['operating_margin']['industry']:.1f}% ({benchmarks['comparisons']['operating_margin']['performance']})
+- **Overall Rating:** {benchmarks['overall_rating']}
+
+### 💡 Key Recommendations
+1. {'✅ Maintain strong margins' if profitability['gross_margin'] > 50 else '⚠️ Improve gross margins through pricing or cost reduction'}
+2. {'✅ Unit economics are healthy' if unit_economics['ltv_cac_ratio'] > 3 else '⚠️ Optimize CAC or increase LTV'}
+3. {'✅ Adequate runway' if cash_flow['runway_months'] > 18 else '❌ Consider fundraising or reducing burn'}
+4. {'✅ Near profitability' if break_even['margin_of_safety'] > 0 else '⚠️ Focus on path to profitability'}
+
+### 🎬 Action Items
+{chr(10).join(['• ' + rec for rec in benchmarks['recommendations']])}
+"""
+
+            text_msg = cl.Message(content=content)
+            await text_msg.send()
+
+            # Send chart
+            image = cl.Image(content=chart, name="company_analysis.png", display="inline")
+            await image.send(for_id=text_msg.id)
+
+        else:  # Quick Analysis
+            await cl.Message(content="### ⚡ Quick Profitability Check\n\nProvide key metrics for rapid assessment.").send()
+
+            revenue = await ask_float("Monthly revenue ($ thousands)", 100.0)
+            costs = await ask_float("Monthly costs ($ thousands)", 120.0)
+            customers = await ask_int("Number of customers", 100, mi=1, ma=100000)
+
+            # Quick calculations
+            profit = revenue - costs
+            margin = (profit / revenue * 100) if revenue > 0 else -100
+            revenue_per_customer = (revenue * 1000) / customers if customers > 0 else 0
+
+            status = "📈 Profitable" if profit > 0 else "📉 Not Yet Profitable"
+            health = "Strong" if margin > 20 else "Moderate" if margin > 0 else "Needs Improvement"
+
+            content = f"""
+### ⚡ Quick Analysis Results
+
+**Status:** {status}
+**Net Margin:** {margin:.1f}%
+**Monthly Profit/Loss:** ${profit*1000:,.0f}
+**Revenue per Customer:** ${revenue_per_customer:.2f}
+**Financial Health:** {health}
+
+**Quick Insights:**
+- {'Focus on achieving profitability' if profit < 0 else 'Maintain positive trajectory'}
+- {'Reduce costs or increase pricing' if margin < 0 else 'Consider scaling'}
+- {'Improve customer monetization' if revenue_per_customer < 100 else 'Good customer value'}
+"""
+
+            await cl.Message(content=content).send()
+
         return
 
     # =============================
