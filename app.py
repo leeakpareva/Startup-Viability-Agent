@@ -739,7 +739,7 @@ def plot_failure_timeline(df_in: pd.DataFrame):
 
     # Create bar plot using seaborn for better styling
     # Coolwarm palette: cooler colors for later failure, warmer for sooner
-    sns.barplot(data=df_in, x="Startup", y="Est_Failure_Year", palette="coolwarm", ax=ax)
+    sns.barplot(data=df_in, x="Startup", y="Est_Failure_Year", hue="Startup", palette="coolwarm", legend=False, ax=ax)
 
     # Add text labels on top of each bar showing the exact failure year
     for i, row in df_in.reset_index().iterrows():
@@ -2022,8 +2022,7 @@ def navada_chat_pipeline(question: str, session_id: str, persona: str, get_chat_
             model="gpt-4o-mini",
             messages=messages,
             max_tokens=800,
-            temperature=0.7,
-            langsmith_extra=langsmith_extra
+            temperature=0.7
         )
 
         return response.choices[0].message.content
@@ -2554,10 +2553,6 @@ def analyze_search_results(search_data: Dict[str, Any], persona: Dict[str, str],
                 ],
                 max_tokens=800,
                 temperature=0.7,
-                langsmith_extra={
-                    "project_name": LANGSMITH_PROJECT,
-                    "metadata": {"session_id": session_id}
-                }
             )
         else:
             response = client.chat.completions.create(
@@ -3032,10 +3027,6 @@ def process_with_thread_context(
                 messages=messages,
                 max_tokens=800,
                 temperature=0.7,
-                langsmith_extra={
-                    "project_name": LANGSMITH_PROJECT,
-                    "metadata": {"session_id": session_id}
-                }
             )
         else:
             # Standard OpenAI call without LangSmith
@@ -4038,10 +4029,6 @@ async def main(message: cl.Message):
                     }
                 ],
                 max_tokens=150,
-                langsmith_extra={
-                    "project_name": LANGSMITH_PROJECT,
-                    "metadata": {"session_id": session_id}
-                }
             )
         else:
             intent_response = client.chat.completions.create(
@@ -4414,7 +4401,8 @@ async def main(message: cl.Message):
         search_results = search_internet(query, count=5)
 
         if not search_results["success"]:
-            await msg.update(content=f"❌ Search failed: {search_results['error']}")
+            msg.content = f"❌ Search failed: {search_results['error']}"
+            await msg.update()
             return
 
         # Get current persona for analysis
@@ -4487,10 +4475,12 @@ async def main(message: cl.Message):
                 # Send audio
                 await audio.send(for_id=text_msg.id)
             else:
-                await msg.update(content="❌ Failed to generate audio. Please try again.")
+                msg.content = "❌ Failed to generate audio. Please try again."
+                await msg.update()
 
         except Exception as e:
-            await msg.update(content=f"❌ Audio generation error: {str(e)}")
+            msg.content = f"❌ Audio generation error: {str(e)}"
+            await msg.update()
 
         return
 
@@ -4814,7 +4804,10 @@ async def main(message: cl.Message):
     # Add AI response to memory
     add_to_memory(session_id, "assistant", ai_response)
 
-    # Add persona indicator to response
+    # Add persona indicator to response (with safety check)
+    if not ai_response or ai_response.strip() == "":
+        ai_response = "I apologize, but I encountered an issue generating a response. Please try again."
+
     response_with_persona = ai_response
 
     # Add search intelligence indicator if search was used

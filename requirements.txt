@@ -37,6 +37,7 @@ langchain-community==0.2.16        # LangChain community integrations (Chroma, e
 langchain-cli==0.0.31              # LangChain CLI for deployment
 langsmith==0.1.129                 # LangSmith tracing and monitoring
 langgraph==0.2.34                  # LangGraph for deployment compatibility
+langgraph-sdk>=0.1.0               # LangGraph SDK for deployment
 
 # =============================
 # WEB SCRAPING
