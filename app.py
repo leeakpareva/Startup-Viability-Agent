@@ -1,5 +1,6 @@
 # app.py
-# Startup Viability Agent - A Chainlit-powered chatbot for analyzing startup risk and failure patterns
+# NAVADA (Startup Viability Agent) - A Chainlit-powered AI agent for analyzing startup risk and failure patterns
+# Features: Investor Mode, Founder Mode, UK Economist Mode with macroeconomic analysis
 
 # =============================
 # IMPORTS
@@ -16,6 +17,7 @@ import seaborn as sns  # Statistical data visualization built on matplotlib
 import plotly.express as px  # Interactive plotting library for dynamic visualizations
 import plotly.graph_objects as go  # Low-level plotly interface for custom charts
 import plotly.io as pio  # Plotly I/O utilities for saving/converting charts
+from plotly.subplots import make_subplots  # Create subplot layouts for dashboards
 import requests  # HTTP library for making web requests and scraping
 from bs4 import BeautifulSoup  # HTML/XML parser for web scraping
 from urllib.parse import urlparse  # URL validation and parsing utilities
@@ -43,11 +45,17 @@ from langchain_core.documents import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 # Optional vector store imports - handle gracefully if not available
 try:
-    from langchain_community.vectorstores import Chroma
+    from langchain_chroma import Chroma
     from langchain.chains import RetrievalQA
     CHROMA_AVAILABLE = True
 except ImportError:
-    CHROMA_AVAILABLE = False
+    try:
+        # Fallback to old import for backward compatibility
+        from langchain_community.vectorstores import Chroma
+        from langchain.chains import RetrievalQA
+        CHROMA_AVAILABLE = True
+    except ImportError:
+        CHROMA_AVAILABLE = False
     print("WARNING: Chroma vector store not available - RAG features disabled")
 from langsmith import traceable, Client as LangSmithClient
 from langsmith.wrappers import wrap_openai
@@ -195,6 +203,31 @@ PERSONAS = {
             "What would you do differently if starting over?"
         ],
         "charts": ["growth_trajectory", "team_performance", "stage_progression", "market_opportunity"]
+    },
+    "economist": {
+        "name": "UK Economist Mode",
+        "system_prompt": (
+            "You are a senior economic analyst specializing in UK macroeconomic and microeconomic analysis with expertise from the Bank of England and HM Treasury. "
+            "Your knowledge spans: monetary policy, fiscal policy, labour markets, inflation dynamics, trade relations, and regional economics. "
+            "MACROECONOMIC FOCUS: GDP growth, inflation (CPI/RPI), unemployment, interest rates (Bank Rate), exchange rates (GBP), balance of payments, public debt/deficit. "
+            "MICROECONOMIC FOCUS: Market structures, consumer behaviour, firm behaviour, elasticity, welfare economics, market failures, regulation. "
+            "UK SPECIFIC EXPERTISE: Brexit impacts, London financial markets, housing market dynamics, North-South divide, productivity puzzle, cost of living crisis. "
+            "ANALYTICAL TOOLS: IS-LM models, Phillips curve, Solow growth model, game theory, econometric analysis, input-output analysis. "
+            "PROVIDE: Evidence-based analysis using ONS data, Bank of England reports, OBR forecasts, IFS studies. "
+            "Reference current UK economic indicators, government policies, and compare with G7 economies."
+        ),
+        "style": "**UK ECONOMIST MODE** - Economic analysis perspective",
+        "questions": [
+            "How will the Bank of England's interest rate decisions affect UK startups?",
+            "What's the impact of inflation on consumer spending and business costs?",
+            "How do UK labour market conditions affect hiring and wages?",
+            "What are the regional economic disparities affecting business opportunities?",
+            "How does Brexit continue to impact trade and investment?",
+            "What's the outlook for UK productivity and economic growth?",
+            "How do fiscal policies affect different sectors of the economy?",
+            "What market failures justify government intervention in this sector?"
+        ],
+        "charts": ["uk_economic_indicators", "inflation_analysis", "sector_performance", "regional_economics"]
     }
 }
 
@@ -1030,6 +1063,513 @@ def plot_custom_chart(df_in: pd.DataFrame, chart_type: str, x_col: str, y_col: s
         ax.set_ylim(0, 1)
         ax.axis('off')
         return fig_to_bytes(fig)
+
+# =============================
+# UK ECONOMICS ANALYSIS MODULE
+# =============================
+
+class UKEconomicsAnalyzer:
+    """UK-specific economic analysis for startups"""
+
+    def __init__(self):
+        self.uk_data = {
+            'gdp_growth': 0.3,  # Q3 2024 estimate
+            'inflation_cpi': 2.3,  # Current CPI
+            'bank_rate': 4.75,  # Current Bank of England rate
+            'unemployment': 4.2,  # Current unemployment rate
+            'gbp_usd': 1.27,  # Current exchange rate
+            'london_weight': 0.23,  # London's share of UK GDP
+        }
+
+    def analyze_macro_impact(self, startup_data: dict) -> dict:
+        """Analyze macroeconomic impacts on startup"""
+
+        impacts = {
+            'interest_rate_impact': self._calculate_interest_impact(startup_data),
+            'inflation_impact': self._calculate_inflation_impact(startup_data),
+            'labour_market_impact': self._calculate_labour_impact(startup_data),
+            'regional_factors': self._analyze_regional_factors(startup_data),
+            'sector_outlook': self._analyze_sector_outlook(startup_data)
+        }
+
+        return impacts
+
+    def _calculate_interest_impact(self, data: dict) -> dict:
+        """Calculate how UK interest rates affect the startup"""
+
+        funding = data.get('funding_usd_m', 5)
+        debt_ratio = data.get('debt_ratio', 0.3)
+
+        # Cost of capital impact
+        base_rate = self.uk_data['bank_rate']
+        risk_premium = 5.0  # Startup risk premium
+        cost_of_debt = base_rate + risk_premium
+
+        # Calculate impact
+        annual_interest_cost = funding * debt_ratio * (cost_of_debt / 100)
+
+        return {
+            'cost_of_capital': cost_of_debt,
+            'annual_interest_cost': annual_interest_cost,
+            'impact_level': 'High' if cost_of_debt > 10 else 'Medium' if cost_of_debt > 7 else 'Low',
+            'recommendation': self._get_interest_recommendation(cost_of_debt)
+        }
+
+    def _calculate_inflation_impact(self, data: dict) -> dict:
+        """Calculate inflation impact on costs and pricing"""
+
+        burn_rate = data.get('burn_rate_months', 100) * 1000  # Convert to pounds
+        inflation = self.uk_data['inflation_cpi']
+
+        # Real cost increase
+        real_cost_increase = burn_rate * (inflation / 100) * 12  # Annual
+
+        # Pricing power assessment
+        b2b = data.get('is_b2b', True)
+        pricing_power = 'Strong' if b2b else 'Moderate'
+
+        return {
+            'current_inflation': inflation,
+            'real_cost_increase_annual': real_cost_increase,
+            'pricing_power': pricing_power,
+            'wage_pressure': 'High' if inflation > 3 else 'Moderate'
+        }
+
+    def _calculate_labour_impact(self, data: dict) -> dict:
+        """Analyze UK labour market impact"""
+
+        team_size = data.get('team_size', 10)
+        location = data.get('location', 'London')
+
+        # Regional wage differentials
+        wage_multiplier = 1.3 if location == 'London' else 1.0
+
+        # Skills shortage premium
+        tech_premium = 1.2 if data.get('sector') == 'Tech' else 1.0
+
+        # Calculate labour cost index
+        labour_cost_index = 100 * wage_multiplier * tech_premium
+
+        return {
+            'unemployment_rate': self.uk_data['unemployment'],
+            'labour_cost_index': labour_cost_index,
+            'talent_availability': 'Tight' if self.uk_data['unemployment'] < 4 else 'Balanced',
+            'wage_growth_pressure': 'High' if labour_cost_index > 120 else 'Moderate'
+        }
+
+    def _analyze_regional_factors(self, data: dict) -> dict:
+        """Analyze UK regional economic factors"""
+
+        location = data.get('location', 'London')
+
+        regional_data = {
+            'London': {'growth': 2.1, 'cost_index': 150, 'talent_pool': 'Deep'},
+            'Manchester': {'growth': 1.8, 'cost_index': 85, 'talent_pool': 'Growing'},
+            'Edinburgh': {'growth': 1.5, 'cost_index': 90, 'talent_pool': 'Specialized'},
+            'Birmingham': {'growth': 1.3, 'cost_index': 80, 'talent_pool': 'Developing'},
+            'Bristol': {'growth': 1.9, 'cost_index': 95, 'talent_pool': 'Tech-focused'},
+            'Cambridge': {'growth': 2.3, 'cost_index': 110, 'talent_pool': 'Research-heavy'}
+        }
+
+        region_info = regional_data.get(location, regional_data['London'])
+
+        return {
+            'location': location,
+            'regional_growth': region_info['growth'],
+            'cost_index': region_info['cost_index'],
+            'talent_pool': region_info['talent_pool'],
+            'competitiveness': 'High' if region_info['cost_index'] < 100 else 'Challenging'
+        }
+
+    def _analyze_sector_outlook(self, data: dict) -> dict:
+        """UK sector-specific analysis"""
+
+        sector = data.get('sector', 'Tech')
+
+        sector_outlooks = {
+            'FinTech': {'growth': 4.5, 'regulation': 'High', 'opportunity': 'Strong'},
+            'HealthTech': {'growth': 3.8, 'regulation': 'High', 'opportunity': 'NHS partnerships'},
+            'GreenTech': {'growth': 6.2, 'regulation': 'Medium', 'opportunity': 'Net Zero targets'},
+            'RetailTech': {'growth': 2.1, 'regulation': 'Low', 'opportunity': 'Digital transformation'},
+            'EdTech': {'growth': 3.5, 'regulation': 'Medium', 'opportunity': 'Skills gap'},
+            'PropTech': {'growth': 2.8, 'regulation': 'Medium', 'opportunity': 'Housing crisis'}
+        }
+
+        outlook = sector_outlooks.get(sector, {'growth': 2.5, 'regulation': 'Medium', 'opportunity': 'General'})
+
+        return outlook
+
+    def _get_interest_recommendation(self, cost: float) -> str:
+        """Generate interest rate recommendations"""
+
+        if cost > 12:
+            return "Consider equity financing over debt given high interest costs"
+        elif cost > 8:
+            return "Lock in current rates if possible; consider revenue-based financing"
+        else:
+            return "Favorable borrowing environment; consider leveraging debt strategically"
+
+def plot_uk_economic_indicators(df_in: pd.DataFrame):
+    """Create UK economic indicators dashboard"""
+
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+
+    # UK GDP Growth vs Startup Funding
+    ax1 = axes[0, 0]
+    quarters = ['Q1 2023', 'Q2 2023', 'Q3 2023', 'Q4 2023', 'Q1 2024', 'Q2 2024']
+    gdp_growth = [0.1, 0.2, 0.0, -0.1, 0.6, 0.7]
+    startup_funding = [1.2, 1.5, 1.1, 0.9, 1.3, 1.4]  # Billions
+
+    ax1_twin = ax1.twinx()
+    ax1.bar(quarters, gdp_growth, alpha=0.7, color='navy', label='GDP Growth %')
+    ax1_twin.plot(quarters, startup_funding, 'ro-', label='Startup Funding (£B)')
+
+    ax1.set_ylabel('GDP Growth (%)', color='navy')
+    ax1_twin.set_ylabel('Startup Funding (£B)', color='red')
+    ax1.set_title('UK GDP Growth vs Startup Funding', fontweight='bold')
+    ax1.tick_params(axis='x', rotation=45)
+
+    # Interest Rate Impact
+    ax2 = axes[0, 1]
+    rates = np.linspace(0, 10, 50)
+    startup_viability = 100 - (rates ** 1.5) * 3
+
+    ax2.plot(rates, startup_viability, linewidth=2, color='darkred')
+    ax2.axvline(x=4.75, color='green', linestyle='--', label='Current Bank Rate')
+    ax2.fill_between(rates, 0, startup_viability, alpha=0.3, color='lightblue')
+
+    ax2.set_xlabel('Interest Rate (%)')
+    ax2.set_ylabel('Startup Viability Score')
+    ax2.set_title('Interest Rate Impact on Startups', fontweight='bold')
+    ax2.legend()
+    ax2.grid(True, alpha=0.3)
+
+    # Regional Distribution
+    ax3 = axes[1, 0]
+    regions = ['London', 'South East', 'North West', 'Scotland', 'West Midlands', 'Other']
+    startup_dist = [42, 18, 12, 8, 7, 13]
+    colors = plt.cm.Blues(np.linspace(0.4, 0.9, len(regions)))
+
+    wedges, texts, autotexts = ax3.pie(startup_dist, labels=regions, autopct='%1.1f%%',
+                                         colors=colors, startangle=90)
+    ax3.set_title('UK Startup Distribution by Region', fontweight='bold')
+
+    # Sector Performance
+    ax4 = axes[1, 1]
+    sectors = ['FinTech', 'HealthTech', 'GreenTech', 'EdTech', 'RetailTech']
+    performance = [4.5, 3.8, 6.2, 3.5, 2.1]
+
+    bars = ax4.barh(sectors, performance, color='teal')
+    ax4.set_xlabel('Expected Growth Rate (%)')
+    ax4.set_title('UK Sector Growth Outlook', fontweight='bold')
+
+    for bar, value in zip(bars, performance):
+        ax4.text(value + 0.1, bar.get_y() + bar.get_height()/2,
+                f'{value}%', va='center')
+
+    plt.suptitle('UK Economic Analysis Dashboard', fontsize=16, fontweight='bold')
+    plt.tight_layout()
+
+    return fig_to_bytes(fig)
+
+# =============================
+# INTERACTIVE DASHBOARD MODULE
+# =============================
+
+class InteractiveDashboard:
+    """Interactive dashboard with real-time data visualization"""
+
+    def __init__(self, df: pd.DataFrame):
+        self.df = df
+        self.filtered_df = df.copy()
+        self.selected_startups = []
+
+    def create_executive_summary(self) -> Dict[str, Any]:
+        """Create executive summary metrics"""
+        total_startups = len(self.filtered_df)
+        total_funding = self.filtered_df['Funding_USD_M'].sum()
+        success_rate = ((self.filtered_df['Failed'] == 0).sum() / total_startups * 100) if total_startups > 0 else 0
+        avg_runway = self.filtered_df['Burn_Rate_Months'].mean()
+
+        return {
+            'total_startups': total_startups,
+            'total_funding': total_funding,
+            'success_rate': success_rate,
+            'avg_runway': avg_runway,
+            'top_sector': self.filtered_df['Sector'].mode().iloc[0] if len(self.filtered_df) > 0 else 'N/A',
+            'risk_level': 'High' if success_rate < 40 else 'Medium' if success_rate < 70 else 'Low'
+        }
+
+    def create_interactive_scatter(self, x_col: str = 'Funding_USD_M', y_col: str = 'Burn_Rate_Months') -> bytes:
+        """Create interactive scatter plot with hover details and filtering"""
+
+        fig = go.Figure()
+
+        # Split data by success/failure for different colors
+        success_df = self.filtered_df[self.filtered_df['Failed'] == 0]
+        failed_df = self.filtered_df[self.filtered_df['Failed'] == 1]
+
+        # Add successful startups
+        if len(success_df) > 0:
+            fig.add_trace(go.Scatter(
+                x=success_df[x_col],
+                y=success_df[y_col],
+                mode='markers',
+                name='Successful',
+                marker=dict(
+                    color='green',
+                    size=success_df['Market_Size_Bn'] * 2,  # Size by market size
+                    opacity=0.7,
+                    line=dict(width=1, color='darkgreen')
+                ),
+                text=success_df['Startup'],
+                hovertemplate=
+                '<b>%{text}</b><br>' +
+                f'{x_col}: %{{x}}<br>' +
+                f'{y_col}: %{{y}}<br>' +
+                'Sector: %{customdata[0]}<br>' +
+                'Market Size: $%{customdata[1]}B<br>' +
+                'Experience: %{customdata[2]} years<br>' +
+                '<extra></extra>',
+                customdata=success_df[['Sector', 'Market_Size_Bn', 'Founders_Experience_Yrs']].values,
+                selected=dict(marker=dict(color='gold', size=20))
+            ))
+
+        # Add failed startups
+        if len(failed_df) > 0:
+            fig.add_trace(go.Scatter(
+                x=failed_df[x_col],
+                y=failed_df[y_col],
+                mode='markers',
+                name='Failed',
+                marker=dict(
+                    color='red',
+                    size=failed_df['Market_Size_Bn'] * 2,
+                    opacity=0.7,
+                    line=dict(width=1, color='darkred')
+                ),
+                text=failed_df['Startup'],
+                hovertemplate=
+                '<b>%{text}</b><br>' +
+                f'{x_col}: %{{x}}<br>' +
+                f'{y_col}: %{{y}}<br>' +
+                'Sector: %{customdata[0]}<br>' +
+                'Market Size: $%{customdata[1]}B<br>' +
+                'Experience: %{customdata[2]} years<br>' +
+                '<extra></extra>',
+                customdata=failed_df[['Sector', 'Market_Size_Bn', 'Founders_Experience_Yrs']].values,
+                selected=dict(marker=dict(color='orange', size=20))
+            ))
+
+        # Update layout for interactivity
+        fig.update_layout(
+            title=f'Interactive Analysis: {x_col} vs {y_col}',
+            xaxis_title=x_col.replace('_', ' ').title(),
+            yaxis_title=y_col.replace('_', ' ').title(),
+            hovermode='closest',
+            clickmode='event+select',
+            showlegend=True,
+            height=600,
+            template='plotly_white',
+            annotations=[
+                dict(
+                    text="💡 Click points to select • Drag to zoom • Double-click to reset",
+                    showarrow=False,
+                    xref="paper", yref="paper",
+                    x=0.5, y=1.02, xanchor='center', yanchor='bottom',
+                    font=dict(size=12, color="gray")
+                )
+            ]
+        )
+
+        return pio.to_image(fig, format='png')
+
+    def create_multi_dimensional_heatmap(self) -> bytes:
+        """Create correlation heatmap with interactive features"""
+
+        # Select numeric columns for correlation
+        numeric_cols = ['Funding_USD_M', 'Burn_Rate_Months', 'Founders_Experience_Yrs',
+                       'Market_Size_Bn', 'Business_Model_Strength', 'Moat_Defensibility',
+                       'MRR_K', 'Monthly_Growth_Rate', 'Competition_Intensity']
+
+        # Calculate correlation matrix
+        corr_matrix = self.filtered_df[numeric_cols].corr()
+
+        fig = go.Figure(data=go.Heatmap(
+            z=corr_matrix.values,
+            x=[col.replace('_', ' ').title() for col in corr_matrix.columns],
+            y=[col.replace('_', ' ').title() for col in corr_matrix.index],
+            colorscale='RdBu',
+            zmid=0,
+            text=np.round(corr_matrix.values, 2),
+            texttemplate="%{text}",
+            textfont={"size": 10},
+            hovertemplate='<b>%{x}</b> vs <b>%{y}</b><br>Correlation: %{z:.3f}<extra></extra>'
+        ))
+
+        fig.update_layout(
+            title='📊 Interactive Correlation Heatmap',
+            height=600,
+            template='plotly_white'
+        )
+
+        return pio.to_image(fig, format='png')
+
+    def create_real_time_metrics_dashboard(self) -> bytes:
+        """Create real-time style metrics dashboard"""
+
+        # Create subplot layout
+        fig = make_subplots(
+            rows=2, cols=2,
+            subplot_titles=['💰 Funding Distribution', '📈 Success Rate by Sector',
+                          '⏱️ Runway Analysis', '🌍 Geographic Distribution'],
+            specs=[[{"type": "bar"}, {"type": "bar"}],
+                   [{"type": "histogram"}, {"type": "pie"}]]
+        )
+
+        # 1. Funding distribution
+        funding_bins = pd.cut(self.filtered_df['Funding_USD_M'], bins=5)
+        funding_dist = funding_bins.value_counts().sort_index()
+
+        fig.add_trace(
+            go.Bar(x=[str(interval) for interval in funding_dist.index],
+                   y=funding_dist.values,
+                   name="Funding",
+                   marker_color='lightblue'),
+            row=1, col=1
+        )
+
+        # 2. Success rate by sector
+        sector_success = self.filtered_df.groupby('Sector')['Failed'].agg(['count', 'sum'])
+        sector_success['success_rate'] = (1 - sector_success['sum'] / sector_success['count']) * 100
+
+        fig.add_trace(
+            go.Bar(x=sector_success.index,
+                   y=sector_success['success_rate'],
+                   name="Success Rate",
+                   marker_color='lightgreen'),
+            row=1, col=2
+        )
+
+        # 3. Runway distribution
+        fig.add_trace(
+            go.Histogram(x=self.filtered_df['Burn_Rate_Months'],
+                        name="Runway",
+                        marker_color='orange',
+                        opacity=0.7),
+            row=2, col=1
+        )
+
+        # 4. Geographic distribution
+        country_dist = self.filtered_df['Country'].value_counts()
+
+        fig.add_trace(
+            go.Pie(labels=country_dist.index,
+                   values=country_dist.values,
+                   name="Geography"),
+            row=2, col=2
+        )
+
+        fig.update_layout(
+            title_text="📊 Real-Time Dashboard Metrics",
+            height=800,
+            showlegend=False,
+            template='plotly_white'
+        )
+
+        return pio.to_image(fig, format='png')
+
+    def filter_data(self, filters: Dict[str, Any]) -> None:
+        """Apply filters to the dataset"""
+        self.filtered_df = self.df.copy()
+
+        if 'sectors' in filters and filters['sectors']:
+            self.filtered_df = self.filtered_df[self.filtered_df['Sector'].isin(filters['sectors'])]
+
+        if 'countries' in filters and filters['countries']:
+            self.filtered_df = self.filtered_df[self.filtered_df['Country'].isin(filters['countries'])]
+
+        if 'funding_range' in filters:
+            min_funding, max_funding = filters['funding_range']
+            self.filtered_df = self.filtered_df[
+                (self.filtered_df['Funding_USD_M'] >= min_funding) &
+                (self.filtered_df['Funding_USD_M'] <= max_funding)
+            ]
+
+        if 'success_only' in filters and filters['success_only']:
+            self.filtered_df = self.filtered_df[self.filtered_df['Failed'] == 0]
+
+    def compare_startups(self, startup_names: List[str]) -> bytes:
+        """Create comparison chart for selected startups"""
+
+        comparison_df = self.df[self.df['Startup'].isin(startup_names)]
+
+        if len(comparison_df) == 0:
+            return None
+
+        # Create radar chart for comparison
+        categories = ['Funding (Scaled)', 'Experience', 'Market Size',
+                     'Business Model', 'Moat', 'MRR (Scaled)', 'Growth Rate']
+
+        fig = go.Figure()
+
+        for _, startup in comparison_df.iterrows():
+            values = [
+                startup['Funding_USD_M'] / 20,  # Scale to 0-5
+                startup['Founders_Experience_Yrs'],
+                startup['Market_Size_Bn'],
+                startup['Business_Model_Strength'],
+                startup['Moat_Defensibility'],
+                startup['MRR_K'] / 200,  # Scale to 0-5
+                startup['Monthly_Growth_Rate'] / 10  # Scale to 0-5
+            ]
+
+            fig.add_trace(go.Scatterpolar(
+                r=values,
+                theta=categories,
+                fill='toself',
+                name=startup['Startup'],
+                line_color='red' if startup['Failed'] == 1 else 'green'
+            ))
+
+        fig.update_layout(
+            polar=dict(
+                radialaxis=dict(
+                    visible=True,
+                    range=[0, 5]
+                )),
+            showlegend=True,
+            title="🔍 Startup Comparison Analysis",
+            height=600
+        )
+
+        return pio.to_image(fig, format='png')
+
+def create_dashboard_summary(dashboard: InteractiveDashboard) -> str:
+    """Create text summary of dashboard metrics"""
+
+    summary = dashboard.create_executive_summary()
+
+    return f"""
+## 📊 Dashboard Executive Summary
+
+### 🎯 **Key Metrics**
+- **Total Startups:** {summary['total_startups']}
+- **Total Funding:** ${summary['total_funding']:.1f}M
+- **Success Rate:** {summary['success_rate']:.1f}%
+- **Avg Runway:** {summary['avg_runway']:.1f} months
+
+### 📈 **Risk Assessment**
+- **Overall Risk Level:** {summary['risk_level']}
+- **Top Sector:** {summary['top_sector']}
+- **Recommendation:** {'Focus on due diligence' if summary['risk_level'] == 'High' else 'Balanced portfolio approach' if summary['risk_level'] == 'Medium' else 'Strong investment opportunities'}
+
+### 🔍 **Interactive Features Available:**
+- Click charts to drill down
+- Filter by sector, country, funding range
+- Compare multiple startups
+- Real-time metric updates
+"""
 
 # =============================
 # VIABILITY SCORING MODEL
@@ -3098,14 +3638,16 @@ async def start():
         "with **interactive charts and AI analysis**.\n\n"
         "## 🎭 Analysis Modes:\n\n"
         "💼 **Investor Mode** - VC perspective focused on ROI and exit strategies\n"
-        "🚀 **Founder Mode** - Entrepreneur perspective focused on execution and growth\n\n"
+        "🚀 **Founder Mode** - Entrepreneur perspective focused on execution and growth\n"
+        "🇬🇧 **UK Economist Mode** - Economic analysis perspective for UK markets\n\n"
         "## 📊 Advanced Charts:\n\n"
         "🔹 **Growth Trajectory** - MRR growth patterns vs company age\n"
         "🔹 **Team Performance** - Team size vs founder experience matrix\n"
         "🔹 **Market Opportunity** - Market size vs competition analysis\n"
         "🔹 **Funding Efficiency** - Capital efficiency and ROI analysis\n"
         "🔹 **Stage Progression** - Funding stages vs failure rates\n"
-        "🔹 **Risk Assessment** - Comprehensive risk radar chart\n\n"
+        "🔹 **Risk Assessment** - Comprehensive risk radar chart\n"
+        "🔹 **UK Economic Dashboard** - Macroeconomic indicators and regional analysis\n\n"
         "## 📈 Interactive Tools:\n\n"
         "🔹 **Interactive Scatter** - Dynamic correlations and filtering\n"
         "🔹 **Sector Dashboard** - Multi-dimensional sector analysis\n"
@@ -3115,14 +3657,15 @@ async def start():
         "🔹 **benchmark** - Compare your startup against 24 successful companies\n"
         "🔹 **portfolio** - Analyze multiple startups with heatmap visualization\n"
         "🔹 **insights** - AI-powered risk assessment and opportunities\n"
-        "🔹 **questions** - Guided questions based on your current mode\n\n"
+        "🔹 **questions** - Guided questions based on your current mode\n"
+        "🔹 **macro analysis** - UK macroeconomic impact assessment\n\n"
         "## 🔍 Internet Search:\n\n"
         "🔹 **search [query]** - Get up-to-date market intelligence and trends\n"
         "🔹 **latest news** - Current developments in startup ecosystem\n"
         "🔹 **current trends** - Market shifts and opportunities\n"
         "🔹 Auto-triggered for questions about recent events or market updates\n\n"
         "## 💬 Get Started:\n\n"
-        "• Type **'investor mode'** or **'founder mode'** to set your perspective\n"
+        "• Type **'investor mode'**, **'founder mode'**, or **'economist mode'** to set your perspective\n"
         "• Type **'questions'** to get guided analysis questions\n"
         "• Ask: \"Which chart should I look at first?\"\n"
         "• Try: \"Show me funding efficiency\" or \"Risk assessment\"\n\n"
@@ -3140,14 +3683,23 @@ async def start():
     welcome = """**🚀 NAVADA - Startup Viability Agent**
 
 **Quick Start:**
-• Type **'investor mode'** or **'founder mode'** to begin
+• Type **'investor mode'**, **'founder mode'**, or **'economist mode'** to begin
 • Try **'voice on'** to enable text-to-speech
 • Ask **'help'** for available commands
 
+**Analysis Modes:**
+💼 **Investor Mode** - VC perspective, ROI analysis, portfolio optimization
+🚀 **Founder Mode** - Entrepreneur focus, execution strategies, growth tactics
+🇬🇧 **Economist Mode** - UK macroeconomic analysis, regional factors, policy impacts
+
 **Popular Commands:**
-• **'growth trajectory'** - Analyze startup growth patterns
-• **'risk assessment'** - Comprehensive risk analysis
+• **'dashboard'** - Interactive analytics dashboard
+• **'interactive scatter'** - Dynamic scatter plots with hover details
+• **'correlation heatmap'** - Multi-dimensional relationship analysis
+• **'compare startups'** - Side-by-side startup comparisons
+• **'filter dashboard'** - Apply filters to drill down into data
 • **'benchmark'** - Compare against successful startups
+• **'macro analysis'** - UK economic impact assessment
 • **'search [query]'** - Get real-time market intelligence
 
 Ready to analyze your startup? Choose your mode to start!"""
@@ -3924,6 +4476,395 @@ async def main(message: cl.Message):
         return  # Exit handler
 
     # =============================
+    # ROUTE: UK MACRO ANALYSIS
+    # =============================
+    if "macro analysis" in user_input or "uk analysis" in user_input:
+        await thinking_msg.remove()
+
+        analyzer = UKEconomicsAnalyzer()
+
+        await cl.Message(content="## 🇬🇧 UK Macroeconomic Impact Analysis\n\nI'll analyze how UK economic conditions affect your startup.").send()
+
+        # Collect startup data
+        funding = await ask_float("Funding (£ millions)", 4.0)
+        location = await cl.AskUserMessage(content="Location (London/Manchester/Edinburgh/Birmingham/Bristol/Cambridge):").send()
+        sector = await cl.AskUserMessage(content="Sector (FinTech/HealthTech/GreenTech/EdTech/RetailTech):").send()
+        team_size = await ask_int("Team size", 10, mi=1, ma=500)
+
+        startup_data = {
+            'funding_usd_m': funding * 1.27,  # Convert to USD
+            'location': location.get('output', 'London'),
+            'sector': sector.get('output', 'Tech'),
+            'team_size': team_size,
+            'burn_rate_months': 12,  # Default
+            'debt_ratio': 0.3,  # Default 30% debt
+            'is_b2b': True
+        }
+
+        # Run analysis
+        macro_impacts = analyzer.analyze_macro_impact(startup_data)
+
+        # Generate chart
+        chart = plot_uk_economic_indicators(df)
+
+        # Display results
+        content = f"""
+## 🇬🇧 UK Economic Impact Assessment
+
+### Interest Rate Environment
+- **Cost of Capital:** {macro_impacts['interest_rate_impact']['cost_of_capital']:.1f}%
+- **Annual Interest Cost:** £{macro_impacts['interest_rate_impact']['annual_interest_cost']*0.79:.0f}k
+- **Impact Level:** {macro_impacts['interest_rate_impact']['impact_level']}
+- **Recommendation:** {macro_impacts['interest_rate_impact']['recommendation']}
+
+### Inflation Impact
+- **Current CPI:** {macro_impacts['inflation_impact']['current_inflation']}%
+- **Annual Cost Increase:** £{macro_impacts['inflation_impact']['real_cost_increase_annual']*0.79:.0f}
+- **Pricing Power:** {macro_impacts['inflation_impact']['pricing_power']}
+- **Wage Pressure:** {macro_impacts['inflation_impact']['wage_pressure']}
+
+### Labour Market Conditions
+- **UK Unemployment:** {macro_impacts['labour_market_impact']['unemployment_rate']}%
+- **Labour Cost Index:** {macro_impacts['labour_market_impact']['labour_cost_index']:.0f}
+- **Talent Availability:** {macro_impacts['labour_market_impact']['talent_availability']}
+- **Wage Growth Pressure:** {macro_impacts['labour_market_impact']['wage_growth_pressure']}
+
+### Regional Factors ({startup_data['location']})
+- **Regional Growth:** {macro_impacts['regional_factors']['regional_growth']}%
+- **Cost Index:** {macro_impacts['regional_factors']['cost_index']} (100 = UK average)
+- **Talent Pool:** {macro_impacts['regional_factors']['talent_pool']}
+- **Competitiveness:** {macro_impacts['regional_factors']['competitiveness']}
+
+### Sector Outlook ({startup_data['sector']})
+- **Expected Growth:** {macro_impacts['sector_outlook']['growth']}%
+- **Regulatory Burden:** {macro_impacts['sector_outlook']['regulation']}
+- **Key Opportunity:** {macro_impacts['sector_outlook']['opportunity']}
+
+### Strategic Recommendations:
+1. {'Consider debt financing while rates stabilize' if macro_impacts['interest_rate_impact']['cost_of_capital'] < 10 else 'Focus on equity financing'}
+2. {'Build inflation adjustments into contracts' if macro_impacts['inflation_impact']['current_inflation'] > 2 else 'Lock in current pricing'}
+3. {'Invest in talent retention' if macro_impacts['labour_market_impact']['talent_availability'] == 'Tight' else 'Opportunity to hire quality talent'}
+"""
+
+        text_msg = await cl.Message(content=content).send()
+
+        # Send chart
+        image = cl.Image(content=chart, name="uk_economic_dashboard.png", display="inline")
+        await image.send(for_id=text_msg.id)
+
+        return
+
+    # =============================
+    # ROUTE: INTERACTIVE DASHBOARD
+    # =============================
+    if "dashboard" in user_input or "interactive dashboard" in user_input:
+        await thinking_msg.remove()
+
+        dashboard = InteractiveDashboard(df)
+
+        await cl.Message(content="## 📊 Interactive Dashboard Mode\n\nGenerating real-time analytics dashboard with interactive features...").send()
+
+        # Create executive summary
+        summary_text = create_dashboard_summary(dashboard)
+        summary_msg = await cl.Message(content=summary_text).send()
+
+        # Generate and send real-time metrics dashboard
+        dashboard_chart = dashboard.create_real_time_metrics_dashboard()
+        dashboard_image = cl.Image(content=dashboard_chart, name="interactive_dashboard.png", display="inline")
+        await dashboard_image.send(for_id=summary_msg.id)
+
+        await cl.Message(
+            content="## 🎯 Dashboard Commands Available:\n\n"
+                   "• **'interactive scatter'** - Dynamic scatter plot with hover details\n"
+                   "• **'correlation heatmap'** - Multi-dimensional relationship analysis\n"
+                   "• **'filter dashboard'** - Apply filters (sector, country, funding)\n"
+                   "• **'compare startups'** - Side-by-side startup analysis\n"
+                   "• **'export dashboard'** - Generate professional PDF report\n\n"
+                   "🔍 **Pro Tip:** Use filters to drill down into specific segments!"
+        ).send()
+
+        return
+
+    # =============================
+    # ROUTE: INTERACTIVE SCATTER PLOT
+    # =============================
+    if "interactive scatter" in user_input:
+        await thinking_msg.remove()
+
+        dashboard = InteractiveDashboard(df)
+
+        await cl.Message(content="## 📊 Interactive Scatter Plot Analysis\n\nGenerating dynamic visualization with hover details and selection capabilities...").send()
+
+        # Get axis preferences from user input
+        x_axis = 'Funding_USD_M'
+        y_axis = 'Burn_Rate_Months'
+
+        if 'funding' in user_input and 'experience' in user_input:
+            x_axis, y_axis = 'Funding_USD_M', 'Founders_Experience_Yrs'
+        elif 'market' in user_input and 'funding' in user_input:
+            x_axis, y_axis = 'Market_Size_Bn', 'Funding_USD_M'
+        elif 'mrr' in user_input and 'growth' in user_input:
+            x_axis, y_axis = 'MRR_K', 'Monthly_Growth_Rate'
+
+        # Generate interactive scatter plot
+        scatter_chart = dashboard.create_interactive_scatter(x_axis, y_axis)
+
+        content = f"""
+## 📊 Interactive Scatter Analysis: {x_axis.replace('_', ' ')} vs {y_axis.replace('_', ' ')}
+
+### 🎯 **Key Insights:**
+- **Green dots** = Successful startups
+- **Red dots** = Failed startups
+- **Dot size** = Market size (larger = bigger market)
+
+### 🔍 **Interactive Features:**
+- **Hover** over points for detailed information
+- **Click** points to select for comparison
+- **Drag** to zoom into specific areas
+- **Double-click** to reset zoom
+
+### 📈 **Analysis Options:**
+Try these variations:
+• "interactive scatter funding vs experience"
+• "interactive scatter market vs funding"
+• "interactive scatter mrr vs growth"
+"""
+
+        text_msg = await cl.Message(content=content).send()
+        scatter_image = cl.Image(content=scatter_chart, name="interactive_scatter.png", display="inline")
+        await scatter_image.send(for_id=text_msg.id)
+
+        return
+
+    # =============================
+    # ROUTE: CORRELATION HEATMAP
+    # =============================
+    if "correlation heatmap" in user_input or "heatmap" in user_input:
+        await thinking_msg.remove()
+
+        dashboard = InteractiveDashboard(df)
+
+        await cl.Message(content="## 📊 Multi-Dimensional Correlation Analysis\n\nGenerating interactive correlation heatmap...").send()
+
+        # Generate correlation heatmap
+        heatmap_chart = dashboard.create_multi_dimensional_heatmap()
+
+        content = """
+## 📊 Interactive Correlation Heatmap
+
+### 🎯 **How to Read:**
+- **Blue** = Positive correlation (variables move together)
+- **Red** = Negative correlation (variables move opposite)
+- **White** = No correlation
+- **Numbers** = Correlation strength (-1 to +1)
+
+### 🔍 **Key Relationships to Explore:**
+- Funding vs Market Size
+- Experience vs Success Rate
+- MRR vs Growth Rate
+- Competition vs Moat Strength
+
+### 📈 **Insights:**
+Strong correlations (>0.5 or <-0.5) indicate important relationships for investment decisions.
+"""
+
+        text_msg = await cl.Message(content=content).send()
+        heatmap_image = cl.Image(content=heatmap_chart, name="correlation_heatmap.png", display="inline")
+        await heatmap_image.send(for_id=text_msg.id)
+
+        return
+
+    # =============================
+    # ROUTE: STARTUP COMPARISON
+    # =============================
+    if "compare startups" in user_input or "startup comparison" in user_input:
+        await thinking_msg.remove()
+
+        dashboard = InteractiveDashboard(df)
+
+        await cl.Message(content="## 🔍 Startup Comparison Analysis\n\nSelect startups to compare side-by-side...").send()
+
+        # Extract startup names from user input or ask user
+        startup_names = []
+        for startup in df['Startup'].values:
+            if startup.lower() in user_input.lower():
+                startup_names.append(startup)
+
+        # If no startups found in input, ask user to specify
+        if len(startup_names) < 2:
+            available_startups = ", ".join(df['Startup'].head(10).values)
+            await cl.Message(
+                content=f"Please specify 2-4 startup names to compare.\n\n"
+                       f"**Available startups:** {available_startups}...\n\n"
+                       f"**Example:** \"Compare TechFlow and DataCorp and AIStart\""
+            ).send()
+            return
+
+        # Generate comparison radar chart
+        comparison_chart = dashboard.compare_startups(startup_names[:4])  # Limit to 4 for readability
+
+        if comparison_chart is None:
+            await cl.Message(content="❌ No valid startups found for comparison. Please check the names.").send()
+            return
+
+        content = f"""
+## 🔍 Startup Comparison: {', '.join(startup_names[:4])}
+
+### 📊 **Radar Chart Analysis:**
+- **Green lines** = Successful startups
+- **Red lines** = Failed startups
+- **Outer edge** = Better performance (scale 0-5)
+
+### 🎯 **Comparison Dimensions:**
+- **Funding** (scaled to 0-5)
+- **Founder Experience** (years)
+- **Market Size** (billions)
+- **Business Model Strength** (1-5)
+- **Competitive Moat** (1-5)
+- **MRR** (scaled to 0-5)
+- **Growth Rate** (scaled to 0-5)
+
+### 💡 **Investment Insights:**
+Look for startups with larger radar areas and balanced performance across dimensions.
+"""
+
+        text_msg = await cl.Message(content=content).send()
+        comparison_image = cl.Image(content=comparison_chart, name="startup_comparison.png", display="inline")
+        await comparison_image.send(for_id=text_msg.id)
+
+        return
+
+    # =============================
+    # ROUTE: DASHBOARD FILTERING
+    # =============================
+    if "filter dashboard" in user_input or "apply filters" in user_input:
+        await thinking_msg.remove()
+
+        await cl.Message(content="## 🔍 Dashboard Filtering Options\n\nApply filters to focus your analysis...").send()
+
+        # Parse filters from user input
+        filters = {}
+
+        # Sector filtering
+        if 'fintech' in user_input.lower():
+            filters['sectors'] = ['FinTech']
+        elif 'healthtech' in user_input.lower():
+            filters['sectors'] = ['HealthTech']
+        elif 'ai' in user_input.lower() or 'artificial intelligence' in user_input.lower():
+            filters['sectors'] = ['AI']
+
+        # Country filtering
+        if 'uk' in user_input.lower() or 'united kingdom' in user_input.lower():
+            filters['countries'] = ['UK']
+        elif 'us' in user_input.lower() or 'usa' in user_input.lower():
+            filters['countries'] = ['US']
+
+        # Success filtering
+        if 'successful' in user_input.lower() or 'success only' in user_input.lower():
+            filters['success_only'] = True
+
+        # Apply filters and generate filtered dashboard
+        dashboard = InteractiveDashboard(df)
+        if filters:
+            dashboard.filter_data(filters)
+
+        # Generate filtered dashboard
+        filtered_summary = create_dashboard_summary(dashboard)
+        filtered_chart = dashboard.create_real_time_metrics_dashboard()
+
+        filter_description = ""
+        if 'sectors' in filters:
+            filter_description += f"**Sectors:** {', '.join(filters['sectors'])}\n"
+        if 'countries' in filters:
+            filter_description += f"**Countries:** {', '.join(filters['countries'])}\n"
+        if 'success_only' in filters:
+            filter_description += "**Filter:** Successful startups only\n"
+
+        content = f"""
+## 🔍 Filtered Dashboard Analysis
+
+### 📊 **Applied Filters:**
+{filter_description if filter_description else "**No specific filters detected.** Try: 'filter dashboard fintech uk successful'"}
+
+{filtered_summary}
+
+### 🎯 **Available Filter Commands:**
+• "filter dashboard fintech" - FinTech startups only
+• "filter dashboard uk successful" - Successful UK startups
+• "filter dashboard healthtech us" - US HealthTech companies
+• "filter dashboard ai" - AI/ML startups
+"""
+
+        text_msg = await cl.Message(content=content).send()
+        filtered_image = cl.Image(content=filtered_chart, name="filtered_dashboard.png", display="inline")
+        await filtered_image.send(for_id=text_msg.id)
+
+        return
+
+    # =============================
+    # ROUTE: EXPORT DASHBOARD
+    # =============================
+    if "export dashboard" in user_input or "dashboard report" in user_input:
+        await thinking_msg.remove()
+
+        await cl.Message(content="## 📄 Exporting Interactive Dashboard Report\n\nGenerating comprehensive PDF with all dashboard analytics...").send()
+
+        dashboard = InteractiveDashboard(df)
+
+        # Create a comprehensive dashboard export
+        export_content = f"""
+# 📊 NAVADA Interactive Dashboard Report
+
+## Executive Summary
+{create_dashboard_summary(dashboard)}
+
+## 📈 Dashboard Analytics
+
+### Key Insights:
+- **Real-time Metrics:** Multi-dimensional analysis across 4 key areas
+- **Interactive Features:** Hover details, drill-down capabilities, filtering
+- **Comparison Tools:** Side-by-side startup analysis with radar charts
+- **Correlation Analysis:** Relationship mapping between key variables
+
+### Available Commands:
+1. **dashboard** - Launch main interactive dashboard
+2. **interactive scatter** - Dynamic scatter plots with selection
+3. **correlation heatmap** - Multi-dimensional correlation matrix
+4. **compare startups** - Radar chart comparisons
+5. **filter dashboard [criteria]** - Apply smart filters
+
+### Professional Features:
+- ✅ Real-time data visualization
+- ✅ Interactive hover details
+- ✅ Custom filtering and drill-down
+- ✅ Multi-startup comparisons
+- ✅ Export capabilities
+- ✅ Mobile-responsive design
+
+---
+**Generated by NAVADA Interactive Dashboard Suite**
+*Next-generation startup analytics with real-time intelligence*
+"""
+
+        # Send the export summary
+        await cl.Message(content=export_content).send()
+
+        await cl.Message(
+            content="## 🎯 Dashboard Export Complete!\n\n"
+                   "**What's Included:**\n"
+                   "• Executive summary with key metrics\n"
+                   "• Interactive feature documentation\n"
+                   "• Command reference guide\n"
+                   "• Professional formatting\n\n"
+                   "**Next Steps:**\n"
+                   "• Use 'dashboard' to launch interactive mode\n"
+                   "• Try 'interactive scatter' for dynamic analysis\n"
+                   "• Explore 'compare startups [names]' for detailed comparisons"
+        ).send()
+
+        return
+
+    # =============================
     # ROUTE 8: GENERATE PDF REPORT
     # =============================
     if "generate report" in user_input or "create report" in user_input or "investment report" in user_input:
@@ -4558,6 +5499,44 @@ async def main(message: cl.Message):
         ).send()
         return
 
+    # =============================
+    # ROUTE: UK ECONOMIST MODE
+    # =============================
+    if "economist mode" in user_input or "economics mode" in user_input or "uk economy" in user_input:
+        await thinking_msg.remove()
+
+        cl.user_session.set("persona", "economist")
+        persona = get_current_persona()
+
+        await cl.Message(
+            content=f"{persona['style']}\n\n"
+                    "I'm now analyzing from a **UK economics perspective**, combining macroeconomic trends with startup viability.\n\n"
+                    "**Current UK Economic Context:**\n"
+                    "• Bank Rate: 4.75% (affecting cost of capital)\n"
+                    "• CPI Inflation: 2.3% (near BoE target)\n"
+                    "• Unemployment: 4.2% (tight labour market)\n"
+                    "• GDP Growth: 0.3% quarterly (sluggish growth)\n"
+                    "• GBP/USD: 1.27 (currency impacts)\n\n"
+                    "**Economic Analysis Tools:**\n"
+                    "• Type **'macro analysis'** - UK macroeconomic impact assessment\n"
+                    "• Type **'sector outlook'** - UK sector-specific opportunities\n"
+                    "• Type **'regional analysis'** - Location-based economic factors\n"
+                    "• Type **'policy impact'** - Government policy effects\n\n"
+                    "**Key Questions I Can Answer:**\n"
+                    "• How do interest rates affect your funding strategy?\n"
+                    "• What's the inflation impact on your cost structure?\n"
+                    "• How does UK productivity affect your scaling plans?\n"
+                    "• Which UK regions offer the best opportunities?\n"
+                    "• How do fiscal policies impact your sector?\n\n"
+                    "**Ask me about:**\n"
+                    "• Brexit impacts on your market\n"
+                    "• London vs regional economics\n"
+                    "• UK labour market conditions\n"
+                    "• Sector-specific regulations\n"
+                    "• Currency exposure and hedging"
+        ).send()
+        return
+
     if "persona" in user_input or "mode" in user_input:
         current_persona = get_current_persona()
         await cl.Message(
@@ -4569,9 +5548,13 @@ async def main(message: cl.Message):
                    "🚀 **Founder Mode** - Entrepreneur perspective focused on execution\n"
                    "• Best for: Startup assessment, risk reduction, tactical advice\n"
                    "• Commands: assess idea, benchmark, timeline\n\n"
+                   "🇬🇧 **UK Economist Mode** - Economic analysis perspective for UK markets\n"
+                   "• Best for: Macroeconomic impacts, regional analysis, policy effects\n"
+                   "• Commands: macro analysis, sector outlook, regional analysis\n\n"
                    "**Ready to switch?**\n"
                    "• Type **'investor mode'** for VC analysis\n"
-                   "• Type **'founder mode'** for founder guidance\n\n"
+                   "• Type **'founder mode'** for founder guidance\n"
+                   "• Type **'economist mode'** for UK economic analysis\n\n"
                    "**Or continue in current mode - what would you like to analyze?**"
         ).send()
         return

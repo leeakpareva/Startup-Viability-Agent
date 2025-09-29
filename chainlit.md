@@ -41,6 +41,12 @@ Focus on execution, operations, and tactical recommendations
 founder mode
 ```
 
+### 🇬🇧 **UK Economist Mode**
+Focus on macroeconomic analysis, regional factors, and policy impacts
+```
+economist mode
+```
+
 ---
 
 ## 🎯 Three Ways to Use NAVADA
@@ -152,7 +158,18 @@ optimize burn rate for 18 month runway
 exit math mode
 ```
 
-## 📊 **Analytics & Charts**
+## 📊 **Interactive Dashboard & Analytics**
+
+### 🚀 **New: Interactive Dashboard Suite**
+```
+dashboard                    # Launch interactive dashboard
+interactive scatter          # Dynamic scatter plots with hover
+correlation heatmap         # Multi-dimensional correlation analysis
+compare startups            # Side-by-side startup comparisons
+filter dashboard fintech   # Apply filters (sector, country, success)
+```
+
+### 📈 **Classic Analytics & Charts**
 ```
 show funding vs burn chart
 display growth trajectory
@@ -224,6 +241,11 @@ portfolio analysis
 - "Assess my startup idea"
 - "What's the current state of fintech competition?"
 - "Show growth trajectory analysis"
+
+**For UK Economists:**
+- "Run macro analysis for my London-based startup"
+- "How do interest rates affect our funding strategy?"
+- "Compare regional opportunities across UK cities"
 
 **For Financial Analysis:**
 - "Enter math mode and calculate 10x return in 5 years"
@@ -353,6 +375,7 @@ Use these in your natural language requests:
 - `timeline` - Quick test
 - `assess idea` - Interactive guidance
 - `math mode` - Enter mathematical analysis mode
+- `macro analysis` - UK economic impact assessment
 - `search [topic]` - Real-time market data
 - `voice on/off` - Toggle voice responses
 
