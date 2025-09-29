@@ -366,3 +366,5 @@ You: Show me an example
 ---
 
 **Ready to start analyzing? Just type your question below! 👇**
+
+**Designed and Developed by Lee Akpareva MBA, MA**

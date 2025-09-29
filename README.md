@@ -214,3 +214,5 @@ MIT License - see LICENSE file for details.
 ---
 
 **Built for the startup ecosystem with AI, voice, and real-time intelligence** 🌟
+
+**Designed and Developed by Lee Akpareva MBA, MA**
