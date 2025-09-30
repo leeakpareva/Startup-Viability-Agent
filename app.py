@@ -2,6 +2,8 @@
 # NAVADA (Startup Viability Agent) - A Chainlit-powered AI agent for analyzing startup risk and failure patterns
 # Features: Investor Mode, Founder Mode, UK Economist Mode with macroeconomic analysis
 
+print("DEBUG: Starting app.py imports", flush=True)
+
 # =============================
 # IMPORTS
 # =============================
@@ -19,12 +21,16 @@ import asyncio  # Async/await support for concurrent operations
 import logging  # Logging system for error tracking and debugging
 import traceback  # Detailed error tracebacks for debugging
 import functools  # Function decorators and utilities
+print("DEBUG: Importing chainlit", flush=True)
 import chainlit as cl  # Chainlit framework for building conversational AI interfaces
+print("DEBUG: Chainlit imported", flush=True)
 import pandas as pd  # Data manipulation and analysis with DataFrames
 import numpy as np  # Numerical operations for calculations
+print("DEBUG: Importing matplotlib", flush=True)
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend for server environments
 import matplotlib.pyplot as plt  # Core plotting library for creating visualizations
+print("DEBUG: Matplotlib imported", flush=True)
 import seaborn as sns  # Statistical data visualization built on matplotlib
 import plotly.express as px  # Interactive plotting library for dynamic visualizations
 import plotly.graph_objects as go  # Low-level plotly interface for custom charts
@@ -53,7 +59,9 @@ except ImportError:
     print("WARNING: scikit-learn not available - ML features disabled")
 
 # LangChain & LangSmith imports for hosting
+print("DEBUG: Importing langchain_openai", flush=True)
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+print("DEBUG: langchain_openai imported", flush=True)
 from langchain_core.documents import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 # Optional vector store imports - handle gracefully if not available
@@ -68,6 +76,8 @@ from langsmith import traceable, Client as LangSmithClient
 from langsmith.wrappers import wrap_openai
 import langsmith as ls
 
+print("DEBUG: All imports complete", flush=True)
+
 # =============================
 # ERROR HANDLING & LOGGING SETUP
 # =============================
@@ -75,10 +85,9 @@ import langsmith as ls
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
+    format='%(asctime)s - %(message)s',
     handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('navada_app.log', mode='a')
+        logging.StreamHandler()
     ]
 )
 logger = logging.getLogger(__name__)
@@ -317,10 +326,12 @@ recovery_system = create_error_recovery_system()
 # =============================
 
 # Import authentication system
+print("DEBUG: About to import auth_manager", flush=True)
 try:
     from auth_manager import auth_manager
     AUTH_AVAILABLE = True
     logger.info("✅ Authentication system loaded")
+    print("DEBUG: Auth manager loaded successfully", flush=True)
 except ImportError as e:
     AUTH_AVAILABLE = False
     logger.warning(f"⚠️ Authentication system not available: {e}")
@@ -495,6 +506,7 @@ async def handle_register_command(user_input: str) -> bool:
     return False
 
 # Create demo account on startup if it doesn't exist
+print("DEBUG: About to create demo account", flush=True)
 if AUTH_AVAILABLE:
     try:
         # Try to create demo account (will fail silently if it already exists)
@@ -503,6 +515,7 @@ if AUTH_AVAILABLE:
             logger.info("✅ Demo account created: demo/demo123")
     except Exception:
         pass  # Demo account likely already exists
+print("DEBUG: Demo account check complete", flush=True)
 
 # =============================
 # INITIAL SETUP & CONFIGURATION
@@ -598,9 +611,23 @@ def get_thread_history(thread_id: str, project_name: str):
 # =============================
 # LANGSMITH SETUP FOR HOSTING
 # =============================
-# Initialize LangChain components optimized for LangSmith hosting
-embeddings = OpenAIEmbeddings()
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.3)
+# Defer LangChain initialization to avoid startup delays
+embeddings = None
+llm = None
+
+def initialize_langchain_components():
+    """Lazy initialization of LangChain components to speed up startup."""
+    global embeddings, llm
+    if embeddings is None or llm is None:
+        try:
+            embeddings = OpenAIEmbeddings()
+            llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.3)
+            logger.info("✅ LangChain components initialized successfully")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to initialize LangChain components: {e}")
+            embeddings = None
+            llm = None
+    return embeddings, llm
 
 # Vector store and knowledge base for RAG
 vector_store = None
@@ -5039,6 +5066,29 @@ def process_with_thread_context(
         return f"Error processing message: {str(e)}"
 
 # =============================
+# PASSKEY AUTHENTICATION SYSTEM
+# =============================
+
+# Global variables for authentication state
+PASSKEY = "54321"  # Temporary passkey for testing
+AUTHENTICATED_SESSIONS = set()  # Track authenticated session IDs
+
+async def check_authentication():
+    """Check if user is authenticated."""
+    session_id = cl.user_session.get("session_id")
+    if not session_id:
+        session_id = str(uuid.uuid4())
+        cl.user_session.set("session_id", session_id)
+
+    # Check if already authenticated
+    if session_id in AUTHENTICATED_SESSIONS:
+        return True
+
+    # Show NAVADA with padlock icon
+    await cl.Message(content="**NAVADA** 🔐").send()
+    return False
+
+# =============================
 # CHAINLIT EVENT HANDLERS
 # =============================
 
@@ -5063,10 +5113,19 @@ async def start():
     - Async function for non-blocking UI operations
     """
     # -------------------------
-    # INITIALIZE THREAD/SESSION TRACKING
+    # PASSKEY AUTHENTICATION CHECK
     # -------------------------
     # Generate a unique session ID for this conversation thread
     session_id = str(uuid.uuid4())
+    cl.user_session.set("session_id", session_id)
+
+    # Authenticate user with passkey
+    if not await check_authentication():
+        return  # Exit if authentication fails
+
+    # -------------------------
+    # INITIALIZE THREAD/SESSION TRACKING
+    # -------------------------
 
     # Store session info in Chainlit user session for persistence
     cl.user_session.set("session_id", session_id)
@@ -5142,49 +5201,10 @@ async def start():
     cl.user_session.set("tts_enabled", False)
 
     # -------------------------
-    # SEND BRIEF WELCOME MESSAGE
+    # SEND SIMPLE WELCOME MESSAGE
     # -------------------------
-    # Send clear welcome message with instructions
-    welcome = """**🚀 NAVADA - Startup Viability Agent**
-
-**Quick Start:**
-• Type **'investor mode'**, **'founder mode'**, or **'economist mode'** to begin
-• Try **'voice on'** to enable text-to-speech
-• Ask **'help'** for available commands
-
-**Analysis Modes:**
-💼 **Investor Mode** - VC perspective, ROI analysis, portfolio optimization
-🚀 **Founder Mode** - Entrepreneur focus, execution strategies, growth tactics
-🇬🇧 **Economist Mode** - UK macroeconomic analysis, regional factors, policy impacts
-
-**Popular Commands:**
-• **'dashboard'** - Interactive analytics dashboard
-• **'interactive scatter'** - Dynamic scatter plots with hover details
-• **'correlation heatmap'** - Multi-dimensional relationship analysis
-• **'compare startups'** - Side-by-side startup comparisons
-• **'filter dashboard'** - Apply filters to drill down into data
-• **'benchmark'** - Compare against successful startups
-• **'macro analysis'** - UK economic impact assessment
-• **'search [query]'** - Get real-time market intelligence
-
-Ready to analyze your startup? Choose your mode to start!"""
-
-    # Send the welcome message asynchronously to the UI
-    await cl.Message(content=welcome).send()
-
-    # -------------------------
-    # ADD ELEVENLABS CONVAI WIDGET
-    # -------------------------
-    # Add ElevenLabs voice agent widget for voice interactions
-    elevenlabs_widget = """
-    <elevenlabs-convai agent-id="agent_6501k5q5hn4zf9eteg70jwra0ekp"></elevenlabs-convai>
-    <script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
-    """
-
-    # Send the ElevenLabs widget information
-    await cl.Message(
-        content="🎙️ **Voice Agent Available** - ElevenLabs ConvAI widget configured with agent ID: `agent_6501k5q5hn4zf9eteg70jwra0ekp`"
-    ).send()
+    # Send basic welcome message
+    await cl.Message(content="**NAVADA**").send()
 
     # Try to inject the widget via Chainlit's HTML element
     try:
@@ -5452,22 +5472,35 @@ async def main(message: cl.Message):
     global df  # Allow modification of global dataset
 
     # -------------------------
-    # AUTHENTICATION CHECK (DISABLED FOR TESTING)
+    # PASSKEY AUTHENTICATION CHECK
     # -------------------------
-    # TESTING MODE: Skip authentication for faster testing
-    # auth_status = check_user_authentication()
+    session_id = cl.user_session.get("session_id", "unknown")
 
-    # Set default test user for development
+    # Handle passkey authentication
+    user_input_raw = message.content.strip()
+
+    # Check if user is trying to authenticate with the passkey
+    if user_input_raw == PASSKEY and session_id not in AUTHENTICATED_SESSIONS:
+        # Authenticate the user
+        AUTHENTICATED_SESSIONS.add(session_id)
+        await cl.Message(content="✅ **Access Granted!**").send()
+        return
+
+    # Check if user is authenticated
+    if session_id not in AUTHENTICATED_SESSIONS:
+        await cl.Message(content="🔐").send()
+        return
+
+    # Set authenticated user info
     auth_status = {
         "authenticated": True,
-        "username": "test_user",
-        "user_id": "test_123",
-        "email": "test@navada.ai",
+        "username": "authenticated_user",
+        "user_id": f"user_{session_id[:8]}",
+        "email": "user@navada.ai",
         "subscription_tier": "free"
     }
 
-    # Allow login and register commands even when not authenticated
-    user_input_raw = message.content.strip()
+    # Parse user input (already extracted above in authentication check)
     user_input = user_input_raw.lower()
 
     # Handle authentication commands (commented out for testing)
@@ -7877,9 +7910,11 @@ def initialize_knowledge_base():
         # Try to connect to external LangChain database first
         if langchain_database_id and CHROMA_AVAILABLE:
             try:
+                # Initialize LangChain components if not already done
+                embeddings_func, _ = initialize_langchain_components()
                 # Connect to external LangChain database using the provided ID
                 vector_store = Chroma(
-                    embedding_function=embeddings,
+                    embedding_function=embeddings_func,
                     persist_directory=f"./langchain_db_{langchain_database_id}"
                 )
                 print(f"✅ Connected to LangChain database: {langchain_database_id[:8]}...")
@@ -7948,21 +7983,7 @@ async def health_check():
     """Health check endpoint for LangSmith monitoring."""
     return {"status": "healthy", "app": "NAVADA", "version": "1.0.0"}
 
-@cl.on_chat_start
-async def init_navada_langsmith():
-    """Initialize NAVADA for LangSmith platform deployment."""
-    try:
-        # Initialize knowledge base
-        initialize_knowledge_base()
-
-        # Send simple welcome message
-        await cl.Message(content="**NAVADA**").send()
-
-    except Exception as e:
-        await cl.Message(content=f"⚠️ Initialization issue: {str(e)}. Using standard mode.").send()
-
 # =============================
 # LANGGRAPH AGENT EXPORT
 # =============================
 # Export agent for LangGraph deployment
-# agent = cl  # Commented out - incomplete line
