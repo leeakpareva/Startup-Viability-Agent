@@ -214,7 +214,7 @@ class AuthManager:
             logger.error(f"Logout error: {e}")
             return {"success": False, "message": str(e)}
 
-    def save_conversation(self, user_id: str, thread_id: str, mode: str, messages: List[Dict]) -> Dict[str, Any]:
+    def save_full_conversation(self, user_id: str, thread_id: str, mode: str, messages: List[Dict]) -> Dict[str, Any]:
         """Save a conversation to database."""
         try:
             with sqlite3.connect(self.db_path, timeout=5.0) as conn:
@@ -283,6 +283,27 @@ class AuthManager:
                 return {"success": True}
         except Exception as e:
             logger.error(f"Log action error: {e}")
+            return {"success": False, "message": str(e)}
+
+    def save_conversation(self, user_id: str, chainlit_session_id: str, role: str, content: str, persona_mode: str = None, metadata: Optional[Dict] = None) -> Dict[str, Any]:
+        """Save individual conversation messages with chainlit session tracking."""
+        try:
+            # Use log_user_action for individual message logging
+            details = {
+                "chainlit_session_id": chainlit_session_id,
+                "role": role,
+                "content": content,
+                "persona_mode": persona_mode,
+                "metadata": metadata or {}
+            }
+
+            return self.log_user_action(
+                user_id=user_id,
+                action_type=f"message_{role}",
+                details=details
+            )
+        except Exception as e:
+            logger.error(f"Save conversation message error: {e}")
             return {"success": False, "message": str(e)}
 
 # Create singleton instance
