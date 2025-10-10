@@ -562,8 +562,17 @@ if api_key:
         langsmith_client = None
         print("INFO: LangSmith tracing disabled (no API key)")
 else:
-    client = OpenAI()  # Will use default OPENAI_API_KEY from environment
-    langsmith_client = None
+    # Try to create client with environment variable, but handle missing key gracefully
+    try:
+        client = OpenAI()  # Will use default OPENAI_API_KEY from environment
+        langsmith_client = None
+    except Exception as e:
+        print(f"ERROR: OpenAI client initialization failed: {e}")
+        print("SOLUTION: Please set the OPENAI_API_KEY environment variable in your Hugging Face Space settings")
+        print("1. Go to your Space settings")
+        print("2. Add OPENAI_API_KEY as an environment variable")
+        print("3. Restart the Space")
+        raise SystemExit("Application cannot start without valid OpenAI API key")
 
 # =============================
 # LANGSMITH THREAD MANAGEMENT
