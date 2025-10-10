@@ -48,7 +48,6 @@ from dataclasses import dataclass, field  # For structured data classes
 from openai import OpenAI  # OpenAI API client for GPT model interactions
 from dotenv import load_dotenv  # Load environment variables from .env file
 import uuid  # For generating unique thread/session IDs
-from IPython.display import display  # IPython display utilities (not actively used)
 # Optional ML imports - handle gracefully if not available (for Vercel size limits)
 try:
     from sklearn.model_selection import train_test_split  # Split data for ML training
@@ -62,7 +61,9 @@ except ImportError:
 print("DEBUG: Importing langchain_openai", flush=True)
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 print("DEBUG: langchain_openai imported", flush=True)
+print("DEBUG: Importing langchain_core.documents", flush=True)
 from langchain_core.documents import Document
+print("DEBUG: langchain_core.documents imported", flush=True)
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 # Optional vector store imports - handle gracefully if not available
 try:
